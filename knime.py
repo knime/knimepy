@@ -2,7 +2,6 @@
 
 TODOs:
     * add tool to view comments on container input nodes to help id them
-    * permit pandas DataFrames as a form of input and output
     * add tests which use knime workflow directory checked into test dir
     * make sure setup.py doesn't install stuff from test/
     * expose/list on PyPI properly
@@ -28,7 +27,7 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME.com AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.7.2"
+__version__ = "0.8.0"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -99,6 +98,49 @@ def find_node_id(path_to_knime_workflow, unique_node_dirname):
     return int(node_id)
 
 
+map_numpy_to_knime_type = (
+    ('float', 'double'),
+    ('int64', 'long'),
+    ('long', 'long'),
+    ('int', 'int'),
+    ('bool', 'boolean')
+)
+
+def pandas_type_mapper(pandas_dtype):
+    "Converts a pandas dtype to a comparable KNIME data type (as a string)."
+    key = str(pandas_dtype)
+    for np_type, knime_type in map_numpy_to_knime_type:
+        if np_type in key:
+            return knime_type
+    return 'string'
+
+
+def convert_dataframe_to_knime_friendly_dict(df):
+    """Produces a dict from a pandas DataFrame-like input that is structured
+    to be friendly to KNIME when converted to then consumed as json."""
+
+    proto_table_spec = [
+        (column_name, pandas_type_mapper(dtype))
+        for column_name, dtype in df.dtypes.items()
+    ]
+
+    # If an encountered column's dtype does not readily map to a KNIME
+    # data type, it will be conveyed to KNIME as a 'string'.  To ensure
+    # proper conversion to json, a copy of the original DataFrame is
+    # created, containing str values in otherwise problematic columns.
+    df2 = df.copy()
+    for column_name, knime_type in proto_table_spec:
+        if knime_type == "string":
+            df2[column_name] = df2[column_name].apply(str)
+
+    data = { 
+        "table-spec": [ {c: t} for c, t in proto_table_spec ],
+        "table-data": df2.to_dict(orient="split")["data"],
+    }
+
+    return data
+
+
 def run_workflow_using_multiple_service_tables(
         input_datas,
         path_to_knime_executable,
@@ -107,6 +149,7 @@ def run_workflow_using_multiple_service_tables(
         output_service_table_node_ids,
         *,
         live_passthru_stdout_stderr=False,
+        output_as_pandas_dataframes=True,
         input_json_filename_pattern="input_%d.json",
         output_json_filename_pattern="output_%d.json",
     ):
@@ -125,6 +168,12 @@ def run_workflow_using_multiple_service_tables(
         for node_id, data in zip(input_service_table_node_ids, input_datas):
             input_json_filename = input_json_filename_pattern % node_id
             input_json_filepath = Path(temp_dir, input_json_filename)
+
+            # Support pandas DataFrame-like inputs.
+            try:
+                data = convert_dataframe_to_knime_friendly_dict(data)
+            except AttributeError:
+                pass
 
             with open(input_json_filepath, "w") as input_json_fh:
                 json.dump(data, input_json_fh)
@@ -177,6 +226,24 @@ def run_workflow_using_multiple_service_tables(
             logging.error(f"captured stdout: {result.stdout}")
             logging.error(f"captured stderr: {result.stderr}")
             raise ChildProcessError("Output from KNIME not found")
+
+        if output_as_pandas_dataframes:
+            try:
+                import pandas as pd
+                for i, output in enumerate(knime_outputs):
+                    df_columns = list(
+                        k for d in output['table-spec']
+                        for k, v in d.items()
+                    )
+                    knime_outputs[i] = pd.DataFrame(
+                        output['table-data'],
+                        columns=df_columns
+                    )
+            except ImportError:
+                logging.warning("requested output as DataFrame not possible")
+            except Exception as e:
+                logging.error("error while converting KNIME output to DataFrame")
+                raise e
 
         if result.returncode != 0:
             logging.info(f"captured stdout: {result.stdout}")
@@ -270,7 +337,7 @@ class LocalWorkflow:
     @property
     def data_table_inputs_names(self):
         "View of which Container Input nodes go with which position in list."
-        return self._service_table_input_nodes[:]
+        return tuple(self._service_table_input_nodes)
 
     def _repr_svg_(self):
         "Displays SVG of workflow in Jupyter notebook."
