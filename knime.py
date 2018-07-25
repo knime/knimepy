@@ -19,6 +19,7 @@ import xml.etree.ElementTree as ElementTree
 from pathlib import Path
 import tempfile
 import subprocess
+import shlex
 import logging
 import os
 
@@ -27,7 +28,7 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME.com AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -146,7 +147,7 @@ def run_workflow_using_multiple_service_tables(
         data_dir = Path(temp_dir, "knime_data")
 
         shell_command = " ".join([
-            path_to_knime_executable,
+            shlex.quote(path_to_knime_executable),
             "-nosplash",
             "-debug",
             "--launcher.suppressErrors",
