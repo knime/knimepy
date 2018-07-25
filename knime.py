@@ -27,7 +27,7 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME.com AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.7"
+__version__ = "0.7.1"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -269,7 +269,7 @@ class LocalWorkflow:
     @property
     def data_table_inputs_names(self):
         "View of which Container Input nodes go with which position in list."
-        return self._service_table_input_nodes
+        return self._service_table_input_nodes[:]
 
     def _repr_svg_(self):
         "Displays SVG of workflow in Jupyter notebook."
