@@ -1,6 +1,7 @@
 """Utilities for working with KNIME workflows and data.
 
 TODOs:
+    * add tool to view comments on container input nodes to help id them
     * permit pandas DataFrames as a form of input and output
     * add tests which use knime workflow directory checked into test dir
     * make sure setup.py doesn't install stuff from test/
@@ -26,7 +27,7 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME.com AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.6"
+__version__ = "0.7"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -36,37 +37,6 @@ if os.name == "nt":
     executable_path = r"C:\knime\knime.exe"
 else:
     executable_path = "/opt/local/knime_3.6.0/knime"
-
-
-def find_sole_service_table_node_dirnames(path_to_knime_workflow):
-    """Returns a tuple containing the unique directory names of the Container
-    Input and Output (Table) nodes employed by the KNIME workflow in the
-    specified path on disk.
-    
-    If multiple input or output Container Table nodes appear in the KNIME
-    workflow, the last encountered of each type will be returned though
-    the utility of a KNIME workflow with multiple input or output Container
-    Table nodes is unclear."""
-
-    input_service_table_node_dirname = None
-    output_service_table_node_dirname = None
-
-    for settings_filepath in Path(path_to_knime_workflow).glob("*/settings.xml"):
-        with settings_filepath.open() as fh:
-            for line in fh:
-                if "ContainerTableInputNodeFactory" in line:
-                    *extra, input_service_table_node_dirname, _settings_xml = \
-                        settings_filepath.parts
-                    break
-                elif "ContainerTableOutputNodeFactory" in line:
-                    *extra, output_service_table_node_dirname, _settings_xml = \
-                        settings_filepath.parts
-                    break
-        if (input_service_table_node_dirname is not None
-                and output_service_table_node_dirname is not None):
-            break
-
-    return input_service_table_node_dirname, output_service_table_node_dirname
 
 
 def find_service_table_node_dirnames(path_to_knime_workflow):
@@ -126,67 +96,6 @@ def find_node_id(path_to_knime_workflow, unique_node_dirname):
             break
 
     return int(node_id)
-
-
-def run_workflow_using_service_tables(input_data,
-                                      path_to_knime_executable,
-                                      path_to_knime_workflow,
-                                      input_service_table_node_id,
-                                      output_service_table_node_id,
-                                      *,
-                                      live_passthru_stdout_stderr=False,
-                                      input_json_filename="input.json",
-                                      output_json_filename="output.json"):
-    """Executes the requested KNIME workflow, feeding the supplied data
-    to the Container Input (Table) node in that workflow and returning the
-    output from the workflow's Container Output (Table) node."""
-
-    abspath_to_knime_workflow = Path(path_to_knime_workflow).absolute()
-
-    with tempfile.TemporaryDirectory() as temp_dir:
-        logging.debug(f"using temp dir: {temp_dir}")
-
-        input_json_filepath = Path(temp_dir, input_json_filename)
-        with open(input_json_filepath, "w") as input_json_fh:
-            json.dump(input_data, input_json_fh)
-
-        input_json_fileuri = input_json_filepath.as_uri().replace("://", ":")
-        output_json_filepath = Path(temp_dir, output_json_filename)
-        data_dir = Path(temp_dir, "knime_data")
-
-        shell_command = " ".join([
-            path_to_knime_executable,
-            "-nosplash",
-            "-debug",
-            "--launcher.suppressErrors",
-            "-application org.knime.product.KNIME_BATCH_APPLICATION",
-            f"-data {data_dir}",
-            f'-workflowDir="{abspath_to_knime_workflow}"',
-            f'-option={input_service_table_node_id},inputPathOrUrl,"{input_json_fileuri}",String',
-            f'-option={output_service_table_node_id},outputPathOrUrl,"{output_json_filepath}",String',
-        ])
-        logging.info(f"knime invocation: {shell_command}")
-
-        result = subprocess.run(
-            shell_command,
-            shell=True,
-            stdout=subprocess.PIPE if not live_passthru_stdout_stderr else None,
-            stderr=subprocess.PIPE if not live_passthru_stdout_stderr else None,
-        )
-        logging.info(f"exit code from KNIME execution: {result.returncode}")
-
-        try:
-            with open(output_json_filepath) as output_json_fh:
-                knime_output = json.load(output_json_fh)
-            if result.returncode != 0:
-                logging.info(f"captured stdout: {result.stdout}")
-                logging.info(f"captured stderr: {result.stderr}")
-        except FileNotFoundError:
-            logging.error(f"captured stdout: {result.stdout}")
-            logging.error(f"captured stderr: {result.stderr}")
-            raise ChildProcessError("Output from KNIME not found")
-
-    return knime_output
 
 
 def run_workflow_using_multiple_service_tables(
@@ -356,6 +265,11 @@ class LocalWorkflow:
         if self._service_table_output_nodes is None or self._data_table_outputs is None:
             self._discover_inputoutput_nodes()
         return self._data_table_outputs
+
+    @property
+    def data_table_inputs_names(self):
+        "View of which Container Input nodes go with which position in list."
+        return self._service_table_input_nodes
 
     def _repr_svg_(self):
         "Displays SVG of workflow in Jupyter notebook."
