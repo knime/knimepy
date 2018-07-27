@@ -133,7 +133,7 @@ def convert_dataframe_to_knime_friendly_dict(df):
         if knime_type == "string":
             df2[column_name] = df2[column_name].apply(str)
 
-    data = { 
+    data = {
         "table-spec": [ {c: t} for c, t in proto_table_spec ],
         "table-data": df2.to_dict(orient="split")["data"],
     }
@@ -341,10 +341,27 @@ class LocalWorkflow:
         "View of which Container Input nodes go with which position in list."
         return tuple(self._service_table_input_nodes)
 
+    def _adjust_svg(self):
+        """ as of v3.6.0 the SVGs produced by KNIME all use the same ids for clipping
+        paths. This leads to problems when we try and put multiple of them on the
+        same page. Here we make those unique across SVGs
+        """
+        import random
+        import string
+        chrs = string.ascii_letters+string.digits
+        prefix = [random.choice(chrs) for i in range(10)]
+        txt = open(self.path_to_knime_workflow / "workflow.svg",'r').read()
+        txt = txt.replace('id="clip','id="l%sclip'%prefix).replace('#clip','#l%sclip'%prefix)
+        return txt
+
     def _repr_svg_(self):
         "Displays SVG of workflow in Jupyter notebook."
+        return self._adjust_svg()
+
+    def display_svg(self):
+        "Displays SVG of workflow in Jupyter notebook."
         from IPython.display import SVG, display
-        display(SVG(url=(self.path_to_knime_workflow / "workflow.svg").as_uri()))
+        display(SVG(self._adjust_svg()))
 
 
 class RemoteWorkflow(LocalWorkflow):
@@ -353,5 +370,3 @@ class RemoteWorkflow(LocalWorkflow):
     def __init__(self, workflow_url_on_server):
         self.path_to_knime_workflow = workflow_url_on_server
         raise NotImplementedError("%s not yet implemented" % self.__class__.__name__)
-
-
