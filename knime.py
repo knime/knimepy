@@ -15,7 +15,7 @@ TODOs:
 
 import json
 import xml.etree.ElementTree as ElementTree
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 import tempfile
 import subprocess
 import shlex
@@ -27,14 +27,14 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME.com AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.8.0"
+__version__ = "0.8.1"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
 
 
 if os.name == "nt":
-    executable_path = r"C:\knime\knime.exe"
+    executable_path = r"C:\Program Files\KNIME\knime.exe"
 else:
     executable_path = "/opt/local/knime_3.6.0/knime"
 
@@ -82,11 +82,11 @@ def find_node_id(path_to_knime_workflow, unique_node_dirname):
     else:
         raise IndexError("nodes config XML tag not found")
 
-    target_value = str(Path(unique_node_dirname, "settings.xml"))
+    target_value = str(PurePosixPath(unique_node_dirname, "settings.xml"))
     for node_config in entry.iterfind(config_tag_name):
         for sub_tag in node_config:
             if sub_tag.attrib.get("key") == "id":
-                node_id = sub_tag.attrib["value"]
+                node_id = int(sub_tag.attrib["value"])
             if sub_tag.attrib.get("value") == target_value:
                 found_service_table = True
                 break
@@ -95,7 +95,7 @@ def find_node_id(path_to_knime_workflow, unique_node_dirname):
         if node_id is not None:
             break
 
-    return int(node_id)
+    return node_id
 
 
 map_numpy_to_knime_type = (
@@ -195,8 +195,10 @@ def run_workflow_using_multiple_service_tables(
 
         data_dir = Path(temp_dir, "knime_data")
 
+        # shlex.quote handles executable paths containing spaces, etc.
+        # On Windows, cmd shell requires double-quotes, hence replace()
         shell_command = " ".join([
-            shlex.quote(path_to_knime_executable),
+            shlex.quote(path_to_knime_executable).replace("'", '"'),
             "-nosplash",
             "-debug",
             "--launcher.suppressErrors",
