@@ -342,20 +342,23 @@ class LocalWorkflow:
         return tuple(self._service_table_input_nodes)
 
     def _adjust_svg(self):
-        """ as of v3.6.0 the SVGs produced by KNIME all use the same ids for clipping
+        """As of v3.6.0 the SVGs produced by KNIME all use the same ids for clipping
         paths. This leads to problems when we try and put multiple of them on the
-        same page. Here we make those unique across SVGs
+        same page. Here we make those unique across SVGs until hopefully KNIME
+        updates its behavior.
         """
         import random
         import string
-        chrs = string.ascii_letters+string.digits
-        prefix = [random.choice(chrs) for i in range(10)]
-        txt = open(self.path_to_knime_workflow / "workflow.svg",'r').read()
-        txt = txt.replace('id="clip','id="l%sclip'%prefix).replace('#clip','#l%sclip'%prefix)
-        return txt
+        chrs = string.ascii_letters + string.digits
+        prefix = "".join(random.choice(chrs) for i in range(10))
+        with open(self.path_to_knime_workflow / "workflow.svg", 'r') as f:
+            svg_contents = f.read()
+        svg_contents = svg_contents.replace('id="clip', 'id="l%sclip' % prefix)
+        svg_contents = svg_contents.replace('#clip', '#l%sclip' % prefix)
+        return svg_contents
 
     def _repr_svg_(self):
-        "Displays SVG of workflow in Jupyter notebook."
+        "Returns SVG of workflow for subsequent rendering in Jupyter notebook."
         return self._adjust_svg()
 
     def display_svg(self):
