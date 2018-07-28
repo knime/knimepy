@@ -98,6 +98,35 @@ def find_node_id(path_to_knime_workflow, unique_node_dirname):
     return node_id
 
 
+def read_node_annotation(path_to_knime_workflow, unique_node_dirname):
+    "Returns all of the specified KNIME node's annotation info."
+
+    tree = ElementTree.parse(
+        Path(
+            path_to_knime_workflow,
+            unique_node_dirname,
+            "settings.xml"
+        )
+    )
+    top_config = tree.getroot()
+
+    annotation_info = {}
+    for tag in top_config:
+        if tag.attrib.get("key") == "nodeAnnotation" and tag.tag.endswith("config"):
+            for entry in tag:
+                key = entry.attrib.get("key")
+                value = entry.attrib.get("value")
+                if value is not None and key is not None:
+                    if entry.attrib.get("type", "").endswith("int"):
+                        try:
+                            value = int(value)
+                        except:
+                            pass
+                    annotation_info[key] = value
+
+    return annotation_info
+
+
 map_numpy_to_knime_type = (
     ('float', 'double'),
     ('int64', 'long'),
@@ -340,6 +369,18 @@ class LocalWorkflow:
     def data_table_inputs_names(self):
         "View of which Container Input nodes go with which position in list."
         return tuple(self._service_table_input_nodes)
+
+    @property
+    def data_table_inputs_annotations(self):
+        loa = [
+            read_node_annotation(self.path_to_knime_workflow, stin)
+            for stin in self._service_table_input_nodes
+        ]
+        return loa
+
+    @property
+    def data_table_inputs_annotation_text(self):
+        return [ a.get("text") for a in self.data_table_inputs_annotations ]
 
     def _adjust_svg(self):
         """As of v3.6.0 the SVGs produced by KNIME all use the same ids for clipping
