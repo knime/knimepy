@@ -117,7 +117,17 @@ def pandas_type_mapper(pandas_dtype):
 
 def convert_dataframe_to_knime_friendly_dict(df):
     """Produces a dict from a pandas DataFrame-like input that is structured
-    to be friendly to KNIME when converted to then consumed as json."""
+    to be friendly to KNIME when converted to then consumed as json.
+
+    Known issue:  Uses pandas.DataFrame.to_dict(orient="split") which will
+    make use of the values array rather than individual Series and as such
+    may cause "upcasting" of certain columns' data.  An example of this
+    would be a DataFrame containing only int64 and float64 columns.  The
+    output from to_dict(orient="split") will be a list of lists of float.
+    If upcasting is not possible, say in the same example a column is added
+    containing str's, then to_dict() will treat all as Python objects and
+    thus output a list of lists of int, float, str as appropriate.
+    """
 
     proto_table_spec = [
         (column_name, pandas_type_mapper(dtype))
