@@ -13,7 +13,7 @@ import knime
 
 setup(name='knime',
       version=knime.__version__,
-      description='Fast and simple WSGI-framework for small web-applications.',
+      description='Tools for reading and executing KNIME workflows.',
       long_description=knime.__doc__,
       author=knime.__author__,
       author_email='davin+knimepy@appliomics.com',
