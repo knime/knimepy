@@ -27,16 +27,16 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME.com AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.8.1"
+__version__ = "0.9.0"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
 
 
 if os.name == "nt":
-    executable_path = r"C:\Program Files\KNIME\knime.exe"
+    executable_path = os.getenv("KNIME_EXEC", r"C:\Program Files\KNIME\knime.exe")
 else:
-    executable_path = "/opt/local/knime_3.6.0/knime"
+    executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_3.6.0/knime")
 
 
 def find_service_table_node_dirnames(path_to_knime_workflow):
@@ -258,8 +258,9 @@ def run_workflow_using_multiple_service_tables(
                 raise e
 
         if result.returncode != 0:
-            logging.info(f"captured stdout: {result.stdout}")
-            logging.info(f"captured stderr: {result.stderr}")
+            logging.warning("Return code from KNIME execution was non-zero")
+            logging.warning(f"captured stdout: {result.stdout}")
+            logging.warning(f"captured stderr: {result.stderr}")
 
     return knime_outputs
 
@@ -315,7 +316,12 @@ class LocalWorkflow:
         self._data_table_inputs = [None] * len(self._service_table_input_nodes)
         self._data_table_outputs = [None] * len(self._service_table_output_nodes)
 
-    def execute(self, live_passthru_stdout_stderr=False):
+    def execute(
+            self,
+            *,
+            live_passthru_stdout_stderr=False,
+            output_as_pandas_dataframes=True
+        ):
         "Executes the KNIME workflow via KNIME's batch executor."
         outputs = run_workflow_using_multiple_service_tables(
             self.data_table_inputs,
@@ -324,6 +330,7 @@ class LocalWorkflow:
             self._input_ids,
             self._output_ids,
             live_passthru_stdout_stderr=live_passthru_stdout_stderr,
+            output_as_pandas_dataframes=output_as_pandas_dataframes,
         )
         self._data_table_outputs[:] = outputs
 
