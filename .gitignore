@@ -9,3 +9,5 @@ dist/
 build/
 MANIFEST
 knime.egg-info/
+**/port_?/
+**/internalTables/
