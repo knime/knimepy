@@ -11,21 +11,31 @@ if sys.version_info < (3, 6):
 
 import knime
 
-setup(name='knime',
-      version=knime.__version__,
-      description='Tools for reading and executing KNIME workflows.',
-      long_description=knime.__doc__,
-      author=knime.__author__,
-      author_email='davin+knimepy@appliomics.com',
-      url='https://www.knime.com/',
-      py_modules=['knime'],
-      #scripts=['knime.py'],
-      license='???',
-      platforms='any',
-      classifiers=['Development Status :: 4 - Beta',
-                   'Intended Audience :: Developers',
-                   'Intended Audience :: End Users/Desktop',
-                   'Programming Language :: Python :: 3.6',
-                   'Programming Language :: Python :: 3.7',
-                   ],
-)
+
+def test_discovery():
+    import unittest
+    test_loader = unittest.TestLoader()
+    test_suite = test_loader.discover("tests", pattern="test_*.py")
+    return test_suite
+
+
+if __name__ == "__main__":
+    setup(name="knime",
+          version=knime.__version__,
+          description="Tools for reading and executing KNIME workflows.",
+          long_description=knime.__doc__,
+          author=knime.__author__,
+          author_email="davin+knimepy@appliomics.com",
+          url="https://www.knime.com/",
+          py_modules=["knime"],
+          #scripts=["knime.py"],
+          test_suite="setup.test_discovery",
+          license="???",
+          platforms="any",
+          classifiers=["Development Status :: 4 - Beta",
+                       "Intended Audience :: Developers",
+                       "Intended Audience :: End Users/Desktop",
+                       "Programming Language :: Python :: 3.6",
+                       "Programming Language :: Python :: 3.7",
+                       ],
+    )
