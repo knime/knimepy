@@ -2,7 +2,6 @@
 
 TODOs:
     * add tool to view comments on container input nodes to help id them
-    * add tests which use knime workflow directory checked into test dir
     * make sure setup.py doesn't install stuff from test/
     * expose/list on PyPI properly
     * add handling for setting of workflow variables
@@ -27,7 +26,7 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME.com AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.9.1"
+__version__ = "0.10.0"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]

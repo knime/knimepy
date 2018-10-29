@@ -47,7 +47,7 @@ Expanded Example: Multiple Inputs/Outputs when Executing a KNIME Workflow
 
   # Change the executable_path to point at a particular KNIME install.
   # May alternatively be set via OS Environment Variable, 'KNIME_EXEC'.
-  knime.executable_path = "C:\Program Files\KNIME\knime.exe"
+  knime.executable_path = r"C:\Program Files\KNIME\knime.exe"
 
   # Prepare input data tables as DataFrames or regular dicts (in KNIME's
   # required schema) to be read by the "Container Input (Table)" nodes in
