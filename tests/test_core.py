@@ -1,4 +1,5 @@
 import io
+import hashlib
 import logging
 import os
 import sys
@@ -218,6 +219,28 @@ class CoreFunctionsTest(unittest.TestCase):
         self.assertTrue(
             "Return code from KNIME execution was non-zero" in raw_log_lines[0]
         )
+
+
+    def test_AAAA_nosave_workflow_after_execution_as_default(self):
+        with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
+            wf.execute()
+            results = wf.data_table_outputs[:]
+
+        with open(wf.path_to_knime_workflow / ".savedWithData") as fp:
+            contents_hash = hashlib.md5(fp.read().encode('utf8')).hexdigest()
+        self.assertEqual(contents_hash, "ac23b46d2e75be6a9ce5f479104de658")
+
+
+    def test_zzzz_save_workflow_after_execution(self):
+        with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
+            wf.save_after_execution = True
+            wf.execute()
+            results = wf.data_table_outputs[:]
+
+        with open(wf.path_to_knime_workflow / ".savedWithData") as fp:
+            contents_hash = hashlib.md5(fp.read().encode('utf8')).hexdigest()
+        self.assertNotEqual(contents_hash, "ac23b46d2e75be6a9ce5f479104de658")
+
 
 
 if __name__ == '__main__':

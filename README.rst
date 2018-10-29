@@ -59,7 +59,7 @@ Expanded Example: Multiple Inputs/Outputs when Executing a KNIME Workflow
   }
 
   # Use a with-statement to set the inputs, execute, and get the results.
-  with knime.Workflow("C:\Users\berthold\knime-workspace\ExploreData01") as wf:
+  with knime.Workflow(r"C:\Users\berthold\knime-workspace\ExploreData01") as wf:
       wf.data_table_inputs[0] = input_table_1
       wf.data_table_inputs[1] = input_table_2
       wf.execute()

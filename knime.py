@@ -158,6 +158,7 @@ def run_workflow_using_multiple_service_tables(
         input_service_table_node_ids,
         output_service_table_node_ids,
         *,
+        save_after_execution=False,
         live_passthru_stdout_stderr=False,
         output_as_pandas_dataframes=True,
         input_json_filename_pattern="input_%d.json",
@@ -214,6 +215,7 @@ def run_workflow_using_multiple_service_tables(
             "--launcher.suppressErrors",
             "-application org.knime.product.KNIME_BATCH_APPLICATION",
             f"-data {data_dir}",
+            "-nosave" if not save_after_execution else "",
             f'-workflowDir="{abspath_to_knime_workflow}"',
             " ".join(option_flags_input_service_table_nodes),
             " ".join(option_flags_output_service_table_nodes),
@@ -283,10 +285,12 @@ class LocalWorkflow:
 
     __slots__ = ("_data_table_inputs", "_data_table_outputs",
             "_service_table_input_nodes", "_service_table_output_nodes",
+            "save_after_execution",
             "path_to_knime_workflow", "_input_ids", "_output_ids")
 
-    def __init__(self, workflow_path):
+    def __init__(self, workflow_path, save_after_execution=False):
         self.path_to_knime_workflow = Path(workflow_path).absolute()
+        self.save_after_execution = save_after_execution
         self._data_table_inputs = None
         self._data_table_outputs = None
         self._service_table_input_nodes = None
@@ -329,6 +333,7 @@ class LocalWorkflow:
             self.path_to_knime_workflow,
             self._input_ids,
             self._output_ids,
+            save_after_execution=self.save_after_execution,
             live_passthru_stdout_stderr=live_passthru_stdout_stderr,
             output_as_pandas_dataframes=output_as_pandas_dataframes,
         )
@@ -387,6 +392,7 @@ class LocalWorkflow:
 class RemoteWorkflow(LocalWorkflow):
     "Tools for reading and executing remote KNIME workflows on a Server."
 
-    def __init__(self, workflow_url_on_server):
+    def __init__(self, workflow_url_on_server, save_after_execution=False):
         self.path_to_knime_workflow = workflow_url_on_server
+        self.save_after_execution = save_after_execution
         raise NotImplementedError("%s not yet implemented" % self.__class__.__name__)
