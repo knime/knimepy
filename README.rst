@@ -34,7 +34,7 @@ License
 
 .. __: https://github.com/applio/knimepy/raw/master/LICENSE
 
-Code and documentation are available according to the ??? (see LICENSE__).
+Code and documentation are available according to the LICENSE__.
 
 
 Expanded Example: Multiple Inputs/Outputs when Executing a KNIME Workflow
