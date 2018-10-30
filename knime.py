@@ -26,7 +26,7 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME.com AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.10.0"
+__version__ = "0.11.0"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -167,7 +167,7 @@ def run_workflow_using_multiple_service_tables(
     to the Container Input (Table) nodes in that workflow and returning the
     output from the workflow's Container Output (Table) nodes."""
 
-    abspath_to_knime_workflow = Path(path_to_knime_workflow).absolute()
+    abspath_to_knime_workflow = Path(path_to_knime_workflow).resolve(strict=True)
     if not Path(path_to_knime_executable).exists():
         raise ValueError(f"Executable not found: {path_to_knime_executable}")
 
@@ -269,26 +269,42 @@ def run_workflow_using_multiple_service_tables(
 class Workflow:
     "Factory class for working with KNIME workflows; not for subclassing."
 
-    def __new__(cls, workflow_path_or_url):
-        if workflow_path_or_url.startswith(r"knime://"):
+    def __new__(cls, workflow_path, **kwargs):
+        if workflow_path.startswith(r"knime://"):
             # URL for workflow on KNIME Server is handled by RemoteWorkflow
             cls = RemoteWorkflow
         else:
             # Local filesystem workflow is handled by LocalWorkflow
             cls = LocalWorkflow
-        return cls(workflow_path_or_url)
+        return cls(workflow_path, **kwargs)
 
 
 class LocalWorkflow:
-    "Tools for reading and executing local KNIME workflows."
+    """Enables reading and executing of local KNIME workflows.
+
+    Create a LocalWorkflow by specifying the path to the KNIME workflow's
+    location on disk.  The `workflow_path` may be a relative or absolute
+    path.  Alternatively, a `workspace_path` that points to a KNIME
+    workspace's location on disk may be provided so that the supplied
+    `workflow_path` can instead be relative to the workspace's location.
+    """
 
     __slots__ = ("_data_table_inputs", "_data_table_outputs",
             "_service_table_input_nodes", "_service_table_output_nodes",
             "save_after_execution",
             "path_to_knime_workflow", "_input_ids", "_output_ids")
 
-    def __init__(self, workflow_path, save_after_execution=False):
-        self.path_to_knime_workflow = Path(workflow_path).absolute()
+    def __init__(self, workflow_path, *, workspace_path=None, save_after_execution=False):
+        if workspace_path is not None:
+            try:
+                workflow_path_as_path = Path(workflow_path).relative_to("/")
+            except ValueError:
+                workflow_path_as_path = Path(workflow_path)
+            self.path_to_knime_workflow = (
+                Path(workspace_path) / workflow_path_as_path
+            ).resolve()
+        else:
+            self.path_to_knime_workflow = Path(workflow_path).resolve()
         self.save_after_execution = save_after_execution
         self._data_table_inputs = None
         self._data_table_outputs = None
@@ -389,9 +405,9 @@ class LocalWorkflow:
 
 
 class RemoteWorkflow(LocalWorkflow):
-    "Tools for reading and executing remote KNIME workflows on a Server."
+    "Enables reading and executing of remote KNIME workflows on a Server."
 
-    def __init__(self, workflow_url_on_server, save_after_execution=False):
-        self.path_to_knime_workflow = workflow_url_on_server
+    def __init__(self, workflow_path, *, save_after_execution=False):
+        self.path_to_knime_workflow = workflow_path
         self.save_after_execution = save_after_execution
         raise NotImplementedError("%s not yet implemented" % self.__class__.__name__)

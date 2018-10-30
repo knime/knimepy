@@ -45,7 +45,6 @@ class CoreFunctionsTest(unittest.TestCase):
                 wf.execute()
             results = wf.data_table_outputs[:]
 
-        self.assertEqual(len(results), 1)
         return results
 
 
@@ -54,6 +53,7 @@ class CoreFunctionsTest(unittest.TestCase):
             input_data_table=self.simple_input_data_table_dict,
             output_as_pandas_dataframes=False,
         )
+        self.assertEqual(len(results), 1)
         self.assertTrue(isinstance(results[0], dict))
         returned_table_spec = (list(d)[0] for d in results[0]["table-spec"])
         self.assertEqual(set(returned_table_spec), {"column-int", "b", "computored"})
@@ -67,6 +67,7 @@ class CoreFunctionsTest(unittest.TestCase):
         results = self.templated_test_container_1_input_1_output(
             input_data_table=self.simple_input_data_table_dict,
         )
+        self.assertEqual(len(results), 1)
         if pd is not None:
             self.assertTrue(isinstance(results[0], pd.DataFrame))
         else:
@@ -80,6 +81,7 @@ class CoreFunctionsTest(unittest.TestCase):
             input_data_table=self.simple_input_data_table_dict,
             output_as_pandas_dataframes=True,
         )
+        self.assertEqual(len(results), 1)
         self.assertTrue(isinstance(results[0], pd.DataFrame))
         self.assertEqual(set(results[0].columns), {"column-int", "b", "computored"})
         self.assertEqual(
@@ -99,6 +101,7 @@ class CoreFunctionsTest(unittest.TestCase):
         results = self.templated_test_container_1_input_1_output(
             input_data_table=df,
         )
+        self.assertEqual(len(results), 1)
         self.assertTrue(isinstance(results[0], pd.DataFrame))
         self.assertEqual(
             set(results[0].columns),
@@ -122,6 +125,7 @@ class CoreFunctionsTest(unittest.TestCase):
             input_data_table=df,
             output_as_pandas_dataframes=False,
         )
+        self.assertEqual(len(results), 1)
         self.assertTrue(isinstance(results[0], dict))
         returned_table_spec = (list(d)[0] for d in results[0]["table-spec"])
         self.assertEqual(
@@ -138,6 +142,7 @@ class CoreFunctionsTest(unittest.TestCase):
         results = self.templated_test_container_1_input_1_output(
             output_as_pandas_dataframes=False,
         )
+        self.assertEqual(len(results), 1)
         self.assertTrue(isinstance(results[0], dict))
         returned_table_spec = (list(d)[0] for d in results[0]["table-spec"])
         self.assertEqual(
@@ -150,6 +155,7 @@ class CoreFunctionsTest(unittest.TestCase):
         results = self.templated_test_container_1_input_1_output(
             output_as_pandas_dataframes=None,
         )
+        self.assertEqual(len(results), 1)
         if pd is not None:
             self.assertTrue(isinstance(results[0], pd.DataFrame))
         else:
@@ -162,6 +168,7 @@ class CoreFunctionsTest(unittest.TestCase):
         results = self.templated_test_container_1_input_1_output(
             output_as_pandas_dataframes=True,
         )
+        self.assertEqual(len(results), 1)
         df = results[0]
         self.assertTrue(isinstance(df, pd.DataFrame))
         self.assertEqual(
@@ -186,7 +193,7 @@ class CoreFunctionsTest(unittest.TestCase):
         )
 
 
-    def test_non_existent_workflow_execution(self):
+    def test_container_1_input_1_output_inappropriate_input_data(self):
         logger = logging.getLogger()
 
         # Remove current log handlers.
@@ -199,12 +206,16 @@ class CoreFunctionsTest(unittest.TestCase):
         temp_lh = logging.StreamHandler(log_buffer)
         logger.addHandler(temp_lh)
 
-        with knime.Workflow("tests/knime-workspace/never_gonna_give_you_up") as wf:
-            self.assertEqual(wf.data_table_inputs, [])
-            wf.execute()
-            results = wf.data_table_outputs[:]
+        inappropriate_input_data_table_dict = {
+            "table-spec": [{"columnZZZint": "int"}, {"bZZZ": "string"}],
+            "table-data": [[101, "boil"], [-10, "freeze"]]
+        }
 
-        self.assertEqual(results, [])
+        with self.assertRaises(ChildProcessError):
+            results = self.templated_test_container_1_input_1_output(
+                input_data_table=inappropriate_input_data_table_dict,
+                output_as_pandas_dataframes=False,
+            )
 
         log_buffer.seek(0)
         raw_log_lines = log_buffer.readlines()
@@ -214,16 +225,64 @@ class CoreFunctionsTest(unittest.TestCase):
         for lh in logging_handlers:
             logger.addHandler(lh)
 
-        # Verify warnings sent to logging.
-        self.assertEqual(len(raw_log_lines), 3)
-        self.assertTrue(
-            "Return code from KNIME execution was non-zero" in raw_log_lines[0]
-        )
+        # Verify relevant available info sent to logging.
+        self.assertTrue("captured stdout" in raw_log_lines[0])
+        self.assertTrue("captured stderr" in raw_log_lines[1])
+
+
+    def test_non_existent_workflow_execution(self):
+        with knime.Workflow("tests/knime-workspace/never_gonna_give_you_up") as wf:
+            pass  # There was no execute call and so no problem.
+
+        with self.assertRaises(FileNotFoundError):
+            with knime.Workflow(
+                workspace_path="tests/knime-workspace",
+                workflow_path="never_gonna_let_you_down"
+            ) as wf:
+                # Existence of workflow is only checked in execute().
+                wf.execute(output_as_pandas_dataframes=False)
+                results = wf.data_table_outputs[:]
+
+
+    def test_specify_workspace_plus_workflow(self):
+        with knime.Workflow(
+            workspace_path="tests/knime-workspace",
+            workflow_path="test_simple_container_table_01"
+        ) as wf:
+            wf.execute(output_as_pandas_dataframes=False)
+            results = wf.data_table_outputs[:]
+        self.assertEqual(len(results), 1)
+
+        with knime.Workflow(
+            workspace_path="tests/knime-workspace",
+            workflow_path="/test_simple_container_table_01"
+        ) as wf:
+            wf.execute(output_as_pandas_dataframes=False)
+            results = wf.data_table_outputs[:]
+        self.assertEqual(len(results), 1)
+
+        with self.assertRaises(FileNotFoundError):
+            # Non-existent workflow.
+            with knime.Workflow(
+                workspace_path="tests/knime-workspace",
+                workflow_path="never_gonna_run_around_and_desert_you"
+            ) as wf:
+                wf.execute(output_as_pandas_dataframes=False)
+                results = wf.data_table_outputs[:]
+
+        with self.assertRaises(FileNotFoundError):
+            # Non-existent workspace (note the leading slash).
+            with knime.Workflow(
+                workspace_path="/tests/knime-workspace",
+                workflow_path="/test_simple_container_table_01"
+            ) as wf:
+                wf.execute(output_as_pandas_dataframes=False)
+                results = wf.data_table_outputs[:]
 
 
     def test_AAAA_nosave_workflow_after_execution_as_default(self):
         with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
-            wf.execute()
+            wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
 
         with open(wf.path_to_knime_workflow / ".savedWithData") as fp:
@@ -234,7 +293,7 @@ class CoreFunctionsTest(unittest.TestCase):
     def test_zzzz_save_workflow_after_execution(self):
         with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
             wf.save_after_execution = True
-            wf.execute()
+            wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
 
         with open(wf.path_to_knime_workflow / ".savedWithData") as fp:
