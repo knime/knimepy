@@ -230,6 +230,42 @@ class CoreFunctionsTest(unittest.TestCase):
         self.assertTrue("captured stderr" in raw_log_lines[1])
 
 
+    def test_container_1_input_1_output_mismatched_input_datatypes(self):
+        # Str in column meant for int and vice versa.
+        mismatched_types_input_data_table_dict_1 = {
+            "table-spec": [{"column-int": "int"}, {"b": "string"}],
+            "table-data": [["boil", 98.7], ["freeze", False]]
+        }
+        results = self.templated_test_container_1_input_1_output(
+            input_data_table=mismatched_types_input_data_table_dict_1,
+            output_as_pandas_dataframes=False,
+        )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(len(results[0]["table-data"]), 2)
+        self.assertEqual(len(results[0]["table-data"][0]), 3)
+        self.assertEqual(
+            results[0]["table-data"],
+            [[None, "98.7", None], [None, "false", None]]
+        )
+
+        # Float in column meant for int also results in missing values.
+        mismatched_types_input_data_table_dict_2 = {
+            "table-spec": [{"column-int": "int"}, {"b": "string"}],
+            "table-data": [[100.567, "boil"], [0.123, "freeze"]]
+        }
+        results = self.templated_test_container_1_input_1_output(
+            input_data_table=mismatched_types_input_data_table_dict_2,
+            output_as_pandas_dataframes=False,
+        )
+        self.assertEqual(len(results), 1)
+        self.assertEqual(len(results[0]["table-data"]), 2)
+        self.assertEqual(len(results[0]["table-data"][0]), 3)
+        self.assertEqual(
+            results[0]["table-data"],
+            [[None, "boil", None], [None, "freeze", None]]
+        )
+
+
     def test_non_existent_workflow_execution(self):
         with knime.Workflow("tests/knime-workspace/never_gonna_give_you_up") as wf:
             pass  # There was no execute call and so no problem.
