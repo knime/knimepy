@@ -22,10 +22,10 @@ import os
 
 
 __author__ = "Appliomics, LLC"
-__copyright__ = "Copyright 2018, KNIME.com AG"
+__copyright__ = "Copyright 2018, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "1.0.0"
+__version__ = "0.9.0"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -60,6 +60,29 @@ def find_service_table_node_dirnames(path_to_knime_workflow):
                     break
 
     return input_service_table_node_dirnames, output_service_table_node_dirnames
+
+
+def find_service_table_input_node_parameter_name(
+    path_to_knime_workflow,
+    unique_node_dirname
+):
+    """Returns the unique-to-the-workflow parameter name setting from
+    the specified Container Input (Table) Node."""
+    tree = ElementTree.parse(
+        Path(path_to_knime_workflow, unique_node_dirname, "settings.xml")
+    )
+    top_config = tree.getroot()
+
+    parameter_name = None
+    for config in top_config:
+        if config.attrib.get("key") == "model":
+            for entry in config:
+                if entry.attrib.get("key") == "parameterName":
+                    parameter_name = entry.attrib.get("value")
+                    break
+            break
+
+    return parameter_name
 
 
 def find_node_id(path_to_knime_workflow, unique_node_dirname):
@@ -375,7 +398,21 @@ class LocalWorkflow:
     @property
     def data_table_inputs_names(self):
         "View of which Container Input nodes go with which position in list."
+        if self._service_table_input_nodes is None:
+            self._discover_inputoutput_nodes()
         return tuple(self._service_table_input_nodes)
+
+    @property
+    def data_table_inputs_parameter_names(self):
+        if self._service_table_input_nodes is None:
+            self._discover_inputoutput_nodes()
+        return tuple(
+            find_service_table_input_node_parameter_name(
+                self.path_to_knime_workflow,
+                unique_node_dirname
+            )
+            for unique_node_dirname in self._service_table_input_nodes
+        )
 
     def _adjust_svg(self):
         """As of v3.6.0 the SVGs produced by KNIME all use the same ids for

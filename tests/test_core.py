@@ -320,6 +320,7 @@ class CoreFunctionsTest(unittest.TestCase):
         with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
             wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
+            self.assertEqual(wf.data_table_inputs_parameter_names, ("input",))
 
         with open(wf.path_to_knime_workflow / ".savedWithData") as fp:
             contents_hash = hashlib.md5(fp.read().encode('utf8')).hexdigest()
@@ -331,6 +332,7 @@ class CoreFunctionsTest(unittest.TestCase):
             wf.save_after_execution = True
             wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
+            self.assertEqual(wf.data_table_inputs_parameter_names, ("input",))
 
         with open(wf.path_to_knime_workflow / ".savedWithData") as fp:
             contents_hash = hashlib.md5(fp.read().encode('utf8')).hexdigest()
