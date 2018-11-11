@@ -227,9 +227,15 @@ class CoreFunctionsTest(unittest.TestCase):
 
         # Verify relevant available info sent to logging.
         self.assertTrue("captured stdout" in raw_log_lines[0])
-        self.assertTrue("captured stderr" in raw_log_lines[1])
+        self.assertTrue(
+            len(
+                list(
+                    l for l in raw_log_lines if l.startswith("captured stderr")
+                )
+            )
+        )
         self.assertTrue(len(raw_log_lines[0]) > 25)
-        self.assertTrue(len(raw_log_lines[1]) > 25)
+        self.assertTrue(len(raw_log_lines) > 25)
 
 
     def test_container_1_input_1_output_mismatched_input_datatypes(self):

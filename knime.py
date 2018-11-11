@@ -1,7 +1,6 @@
 """Utilities for working with KNIME workflows and data.
 
 TODOs:
-    * add tool to view comments on container input nodes to help id them
     * expose/list on PyPI properly
     * add handling for setting of workflow variables
       - only via Container Input (Variable) nodes?
@@ -25,7 +24,7 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.9.1"
+__version__ = "0.9.2"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -258,8 +257,12 @@ def run_workflow_using_multiple_service_tables(
                     single_node_knime_output = json.load(output_json_fh)
                 knime_outputs.append(single_node_knime_output)
         except FileNotFoundError:
-            logging.error(f"captured stdout: {result.stdout}")
-            logging.error(f"captured stderr: {result.stderr}")
+            try:
+                logging.error(f"captured stdout: {result.stdout.decode('utf8')}")
+                logging.error(f"captured stderr: {result.stderr.decode('utf8')}")
+            except:
+                logging.error(f"captured stdout: {result.stdout}")
+                logging.error(f"captured stderr: {result.stderr}")
             raise ChildProcessError("Output from KNIME not found")
 
         if output_as_pandas_dataframes:
