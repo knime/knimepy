@@ -25,7 +25,7 @@ __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
 __license__ = "???"
-__version__ = "0.9.0"
+__version__ = "0.9.1"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -245,7 +245,7 @@ def run_workflow_using_multiple_service_tables(
 
         result = subprocess.run(
             shell_command,
-            shell=True,
+            shell=True if os.name != "nt" else False,
             stdout=subprocess.PIPE if not live_passthru_stdout_stderr else None,
             stderr=subprocess.PIPE if not live_passthru_stdout_stderr else None,
         )
