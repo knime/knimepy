@@ -24,7 +24,7 @@ Example: Execute a KNIME Workflow
 Download and Install
 --------------------
 
-.. __: https://github.com/applio/knimepy/raw/master/knime.py
+.. __: https://bitbucket.org/KNIME/knimepy/raw/master/knime.py
 
 Install the latest stable release with ``pip install knime`` (or ``pip3 install knime`` if you have both Python 2 and 3 installed).  Alternatively, download `knime.py`__ (unstable) into your project directory.  There are no hard dependencies other than Python 3.6+ and the Python standard library itself.
 
@@ -32,7 +32,7 @@ Install the latest stable release with ``pip install knime`` (or ``pip3 install 
 License
 -------
 
-.. __: https://github.com/applio/knimepy/raw/master/LICENSE
+.. __: https://bitbucket.org/KNIME/knimepy/raw/master/LICENSE
 
 Code and documentation are available according to the LICENSE__.
 
