@@ -1,11 +1,18 @@
 """Utilities for working with KNIME workflows and data.
 
+Via the Workflow class, a KNIME Workflow can be run via KNIME's batch
+executor (requires KNIME be installed on the local system).  Inputs
+to the "Container Input (Table)" nodes in a KNIME Workflow can be
+supplied as either Python dicts or pandas DataFrames.  Likewise,
+outputs captured from "Container Output (Table)" nodes are provided
+back as either Python dicts or pandas DataFrames.
+
 TODOs:
-    * expose/list on PyPI properly
     * add handling for setting of workflow variables
       - only via Container Input (Variable) nodes?
       - also via batch executor variable settings?
     * add handling for Container Input/Output (JSON) nodes
+    * support remote workflows
 
 """
 
@@ -23,8 +30,7 @@ import os
 __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__license__ = "???"
-__version__ = "0.9.2"
+__version__ = "0.9.3"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
