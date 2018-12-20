@@ -30,7 +30,7 @@ import os
 __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.9.3"
+__version__ = "0.9.4"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]

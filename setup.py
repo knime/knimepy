@@ -31,7 +31,7 @@ if __name__ == "__main__":
         py_modules=["knime"],
         #scripts=["knime.py"],
         test_suite="setup.test_discovery",
-        license="???",
+        license="GPLv3",
         platforms="any",
         classifiers=[
             "Development Status :: 4 - Beta",
@@ -39,8 +39,9 @@ if __name__ == "__main__":
             "Intended Audience :: End Users/Desktop",
             "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: 3.7",
+            "License :: OSI Approved :: GNU General Public License v3 (GPLv3)",
         ],
         project_urls={
-            "Source": "https://bitbucket.org/KNIME/knimepy",
+            "Source": "https://github.com/KNIME/knimepy",
         },
     )
