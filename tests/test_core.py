@@ -244,34 +244,24 @@ class CoreFunctionsTest(unittest.TestCase):
             "table-spec": [{"column-int": "int"}, {"b": "string"}],
             "table-data": [["boil", 98.7], ["freeze", False]]
         }
-        results = self.templated_test_container_1_input_1_output(
-            input_data_table=mismatched_types_input_data_table_dict_1,
-            output_as_pandas_dataframes=False,
-        )
-        self.assertEqual(len(results), 1)
-        self.assertEqual(len(results[0]["table-data"]), 2)
-        self.assertEqual(len(results[0]["table-data"][0]), 3)
-        self.assertEqual(
-            results[0]["table-data"],
-            [[None, "98.7", None], [None, "false", None]]
-        )
+        with self.assertLogs(level=logging.ERROR):
+            with self.assertRaises(ChildProcessError):
+                results = self.templated_test_container_1_input_1_output(
+                    input_data_table=mismatched_types_input_data_table_dict_1,
+                    output_as_pandas_dataframes=False,
+                )
 
         # Float in column meant for int also results in missing values.
         mismatched_types_input_data_table_dict_2 = {
             "table-spec": [{"column-int": "int"}, {"b": "string"}],
             "table-data": [[100.567, "boil"], [0.123, "freeze"]]
         }
-        results = self.templated_test_container_1_input_1_output(
-            input_data_table=mismatched_types_input_data_table_dict_2,
-            output_as_pandas_dataframes=False,
-        )
-        self.assertEqual(len(results), 1)
-        self.assertEqual(len(results[0]["table-data"]), 2)
-        self.assertEqual(len(results[0]["table-data"][0]), 3)
-        self.assertEqual(
-            results[0]["table-data"],
-            [[None, "boil", None], [None, "freeze", None]]
-        )
+        with self.assertLogs(level=logging.ERROR):
+            with self.assertRaises(ChildProcessError):
+                results = self.templated_test_container_1_input_1_output(
+                    input_data_table=mismatched_types_input_data_table_dict_2,
+                    output_as_pandas_dataframes=False,
+                )
 
 
     def test_non_existent_workflow_execution(self):
