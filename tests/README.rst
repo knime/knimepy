@@ -13,8 +13,7 @@ Local workflow execution tests may need 1 environment variable set.  When runnin
 * ``KNIME_SERVER_USER`` sets the user name to be used in accessing the KNIME Server when running the remote tests
 * ``KNIME_SERVER_PASS`` sets the user's password to be used in accessing the KNIME Server when running the remote tests
 
-Example settings for these environment variables:
-.. code-block::
+Example settings for these environment variables::
 
     KNIME_SERVER_URLROOT=https://mytestingserver.knime.org/knime
     KNIME_SERVER_USER=guest
@@ -25,17 +24,14 @@ Example settings for these environment variables:
 Running Tests
 -------------
 
-Local workflow execution tests:
-.. code-block::
+Local workflow execution tests::
 
     % python tests/test_core.py -v
 
-Remote workflow execution tests:
-.. code-block::
+Remote workflow execution tests::
 
     % python tests/test_remote_workflow.py -v
 
-All combined tests:
-.. code-block::
+All combined tests::
 
     % python setup.py test
