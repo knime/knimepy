@@ -25,12 +25,23 @@ import subprocess
 import shlex
 import logging
 import os
+from urllib.parse import urlparse
+try:
+    import requests
+except ImportError:
+    # RemoteWorkflow capabilities will be unavailable
+    requests = None
+try:
+    import pandas
+except ImportError:
+    # Optional support for returning pandas DataFrames will be unavailable
+    pandas = None
 
 
 __author__ = "Appliomics, LLC"
-__copyright__ = "Copyright 2018, KNIME AG"
+__copyright__ = "Copyright 2018-2019, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.9.5"
+__version__ = "0.10.0"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -155,26 +166,61 @@ def convert_dataframe_to_knime_friendly_dict(df):
     thus output a list of lists of int, float, str as appropriate.
     """
 
-    proto_table_spec = [
-        (column_name, pandas_type_mapper(dtype))
-        for column_name, dtype in df.dtypes.items()
-    ]
+    try:
+        proto_table_spec = [
+            (column_name, pandas_type_mapper(dtype))
+            for column_name, dtype in df.dtypes.items()
+        ]
 
-    # If an encountered column's dtype does not readily map to a KNIME
-    # data type, it will be conveyed to KNIME as a 'string'.  To ensure
-    # proper conversion to json, a copy of the original DataFrame is
-    # created, containing str values in otherwise problematic columns.
-    df2 = df.copy()
-    for column_name, knime_type in proto_table_spec:
-        if knime_type == "string":
-            df2[column_name] = df2[column_name].apply(str)
+        # If an encountered column's dtype does not readily map to a KNIME
+        # data type, it will be conveyed to KNIME as a 'string'.  To ensure
+        # proper conversion to json, a copy of the original DataFrame is
+        # created, containing str values in otherwise problematic columns.
+        df2 = df.copy()
+        for column_name, knime_type in proto_table_spec:
+            if knime_type == "string":
+                df2[column_name] = df2[column_name].apply(str)
 
-    data = {
-        "table-spec": [ {c: t} for c, t in proto_table_spec ],
-        "table-data": df2.to_dict(orient="split")["data"],
-    }
+        data = {
+            "table-spec": [ {c: t} for c, t in proto_table_spec ],
+            "table-data": df2.to_dict(orient="split")["data"],
+        }
+
+    except AttributeError:
+        data = df  # Presume not really a pandas.DataFrame; pass it along.
 
     return data
+
+
+def convert_rest_service_output(output_dict, output_as_pandas_dataframes):
+    """Produces a dict containing output values from a KNIME workflow's
+    Container Output (Table) nodes unless a pandas DataFrame is requested."""
+
+    knime_outputs = []
+    if output_as_pandas_dataframes:
+        try:
+            for output in output_dict["outputValues"].values():
+                df_columns = list(
+                    k for d in output['table-spec']
+                    for k, v in d.items()
+                )
+                knime_outputs.append(
+                    pandas.DataFrame(
+                        output['table-data'],
+                        columns=df_columns
+                    )
+                )
+        except ImportError:
+            logging.warning("requested output as DataFrame not possible")
+        except Exception as e:
+            logging.error("error while converting KNIME output to DataFrame")
+            raise e
+    else:
+        knime_outputs = [
+            out["table-data"]
+            for out in output_dict["outputValues"].values()
+        ]
+    return knime_outputs
 
 
 def run_workflow_using_multiple_service_tables(
@@ -186,7 +232,7 @@ def run_workflow_using_multiple_service_tables(
         *,
         save_after_execution=False,
         live_passthru_stdout_stderr=False,
-        output_as_pandas_dataframes=True,
+        output_as_pandas_dataframes=True if pandas else False,
         input_json_filename_pattern="input_%d.json",
         output_json_filename_pattern="output_%d.json",
     ):
@@ -207,10 +253,7 @@ def run_workflow_using_multiple_service_tables(
             input_json_filepath = Path(temp_dir, input_json_filename)
 
             # Support pandas DataFrame-like inputs.
-            try:
-                data = convert_dataframe_to_knime_friendly_dict(data)
-            except AttributeError:
-                pass
+            data = convert_dataframe_to_knime_friendly_dict(data)
 
             with open(input_json_filepath, "w") as input_json_fh:
                 json.dump(data, input_json_fh)
@@ -273,13 +316,12 @@ def run_workflow_using_multiple_service_tables(
 
         if output_as_pandas_dataframes:
             try:
-                import pandas as pd
                 for i, output in enumerate(knime_outputs):
                     df_columns = list(
                         k for d in output['table-spec']
                         for k, v in d.items()
                     )
-                    knime_outputs[i] = pd.DataFrame(
+                    knime_outputs[i] = pandas.DataFrame(
                         output['table-data'],
                         columns=df_columns
                     )
@@ -300,14 +342,23 @@ def run_workflow_using_multiple_service_tables(
 class Workflow:
     "Factory class for working with KNIME workflows; not for subclassing."
 
-    def __new__(cls, workflow_path, **kwargs):
-        if workflow_path.startswith(r"knime://"):
+    def __new__(cls, workflow_path, *, workspace_path=None, **kwargs):
+        if (
+                workflow_path.startswith(r"https://") or
+                workflow_path.startswith(r"http://") or
+                (
+                    workspace_path is not None and (
+                        workspace_path.startswith(r"https://") or
+                        workspace_path.startswith(r"http://")
+                    )
+                )
+           ):
             # URL for workflow on KNIME Server is handled by RemoteWorkflow
             cls = RemoteWorkflow
         else:
             # Local filesystem workflow is handled by LocalWorkflow
             cls = LocalWorkflow
-        return cls(workflow_path, **kwargs)
+        return cls(workflow_path, workspace_path=workspace_path, **kwargs)
 
 
 class LocalWorkflow:
@@ -342,12 +393,12 @@ class LocalWorkflow:
         self._service_table_input_nodes = None
         self._service_table_output_nodes = None
 
+    def __dir__(self):
+        return [ a for a in dir(self.__class__) if a[0] != "_" or a[1] == "_" ]
+
     def __enter__(self):
         self._discover_inputoutput_nodes()
         return self
-
-    def __dir__(self):
-        return [ a for a in dir(self.__class__) if a[0] != "_" or a[1] == "_" ]
 
     def __exit__(self, exc_type, exc_inst, exc_tb):
         return False
@@ -423,6 +474,11 @@ class LocalWorkflow:
             for unique_node_dirname in self._service_table_input_nodes
         )
 
+    def _get_workflow_svg(self):
+        with open(self.path_to_knime_workflow / "workflow.svg", 'r') as f:
+            svg_contents = f.read()
+        return svg_contents
+
     def _adjust_svg(self):
         """As of v3.6.0 the SVGs produced by KNIME all use the same ids for
         clipping paths. This leads to problems when we try and put multiple
@@ -433,8 +489,7 @@ class LocalWorkflow:
         import string
         chrs = string.ascii_letters + string.digits
         prefix = "".join(random.choice(chrs) for i in range(10))
-        with open(self.path_to_knime_workflow / "workflow.svg", 'r') as f:
-            svg_contents = f.read()
+        svg_contents = self._get_workflow_svg()
         svg_contents = svg_contents.replace('id="clip', 'id="l%sclip' % prefix)
         svg_contents = svg_contents.replace('#clip', '#l%sclip' % prefix)
         return svg_contents
@@ -452,7 +507,222 @@ class LocalWorkflow:
 class RemoteWorkflow(LocalWorkflow):
     "Enables reading and executing of remote KNIME workflows on a Server."
 
-    def __init__(self, workflow_path, *, save_after_execution=False):
-        self.path_to_knime_workflow = workflow_path
-        self.save_after_execution = save_after_execution
-        raise NotImplementedError("%s not yet implemented" % self.__class__.__name__)
+    def __init__(self, workflow_path, *, workspace_path=None,
+                 username=None, password=None,
+                 server_base_path="/knime"):
+        if workspace_path is not None:
+            parsed_path = urlparse(workspace_path)
+            self.path_to_knime_workflow = \
+                workflow_path.lstrip("/knime").lstrip("/#").strip("/")
+        else:
+            parsed_path = urlparse(workflow_path)
+            self.path_to_knime_workflow = \
+                parsed_path.path.lstrip("/knime").strip("/")
+            if self.path_to_knime_workflow == "":
+                self.path_to_knime_workflow = parsed_path.fragment
+        assert parsed_path.scheme.startswith("http"), "Protocol not recognized"
+        server_base_path = server_base_path.strip("/")
+        self.rest_api_root_url = \
+            f"{parsed_path.scheme}://{parsed_path.netloc}/{server_base_path}/rest/v4"
+        r = requests.get(
+            f"{self.rest_api_root_url}/auth/jwt",
+            auth=(username, password)
+        )
+        assert r.status_code == 200, "Authentication on KNIME Server failed"
+        self._last_status_code = r.status_code
+        self.jwt = r.text
+        self._data_table_inputs = None
+        self._data_table_outputs = []
+        self._service_table_input_nodes = None
+
+    def _discover_inputoutput_nodes(self):
+        r = requests.get(
+            f"{self.rest_api_root_url}/repository/{self.path_to_knime_workflow}:openapi",
+            headers={"Authorization": f"Bearer {self.jwt}"}
+        )
+        self._last_status_code = r.status_code
+        if r.status_code != 200:
+            logging.error(
+                "failure querying server for workflow openapi, " \
+                f"status_code={r.status_code}, text={r.text!r}"
+            )
+            raise RuntimeError(
+                f"Server response status code {r.status_code}: {r.text}"
+            )
+
+        workflow_openapi = r.json()
+        workflow_input_schemas = workflow_openapi['components']['schemas']
+        try:
+            self._service_table_input_nodes = list(
+                workflow_input_schemas['InputParameters']['properties'].keys()
+            )
+        except KeyError:
+            self._service_table_input_nodes = []
+        self._data_table_inputs = [None] * len(self._service_table_input_nodes)
+
+    @property
+    def data_table_inputs(self):
+        """List of inputs (data) to be supplied to the Container Input nodes
+        in the KNIME workflow at time of execution.  Growing or shrinking this
+        list from its original length is not supported.  This list is not
+        guaranteed to persist after __exit__ is called."""
+        if (
+                self._service_table_input_nodes is None or
+                self._data_table_inputs is None
+           ):
+            self._discover_inputoutput_nodes()
+        return self._data_table_inputs
+
+    @property
+    def data_table_inputs_parameter_names(self):
+        if self._service_table_input_nodes is None:
+            self._discover_inputoutput_nodes()
+        parameter_names = tuple(
+            val.rsplit("-", 1)[0] for val in self._service_table_input_nodes
+        )
+        return parameter_names
+
+    @property
+    def data_table_outputs(self):
+        """List of outputs produced from Container Output nodes in the KNIME
+        workflow (populated only after execution).  This list is not
+        guaranteed to persist after __exit__ is called."""
+        return self._data_table_outputs
+
+    def execute(self, *, timeout_ms=None, reset=None, asynchronous=False,
+                output_as_pandas_dataframes=True if pandas else False):
+        "Executes the KNIME workflow via a KNIME Server's REST API."
+
+        job_input_data = {
+            k: convert_dataframe_to_knime_friendly_dict(v)
+            for k, v in zip(
+                self._service_table_input_nodes,
+                self._data_table_inputs
+            )
+        }
+        job_params = {}
+        if timeout_ms:
+            job_params["timeout"] = int(timeout_ms)
+        if reset:
+            job_params["reset"] = bool(reset)
+
+        if asynchronous:
+            r = requests.post(
+                f"{self.rest_api_root_url}/repository/{self.path_to_knime_workflow}:jobs",
+                headers={
+                    "Authorization": f"Bearer {self.jwt}",
+                    "Accept": "application/vnd.mason+json",
+                }
+            )
+            self._last_status_code = r.status_code
+            if r.status_code != 201:
+                logging.error(
+                    "failure during remote job creation, " \
+                    f"status_code={r.status_code}, text={r.text!r}"
+                )
+                raise RuntimeError(
+                    f"Server job creation status code {r.status_code}: {r.text}"
+                )
+            job_id = r.json()["id"]
+
+            job_params["async"] = True
+            r = requests.post(
+                f"{self.rest_api_root_url}/jobs/{job_id}",
+                json=job_input_data,
+                params=job_params,
+                headers={
+                    "Authorization": f"Bearer {self.jwt}",
+                    "Accept": "application/vnd.mason+json",
+                }
+            )
+            self._last_status_code = r.status_code
+            if r.status_code != 200:
+                logging.error(
+                    "failure during remote async job launch, " \
+                    f"status_code={r.status_code}, text={r.text!r}"
+                )
+                raise RuntimeError(
+                    f"Server job launch status code {r.status_code}: {r.text}"
+                )
+
+            return AsyncJob(
+                job_id,
+                self.rest_api_root_url,
+                jwt=self.jwt,
+            )
+
+        r = requests.post(
+            f"{self.rest_api_root_url}/repository/{self.path_to_knime_workflow}:execution",
+            json=job_input_data,
+            params=job_params,
+            headers={
+                "Authorization": f"Bearer {self.jwt}",
+                "Content-Type": "application/json",
+                "Accept": "application/vnd.mason+json",
+            }
+        )
+        self._last_status_code = r.status_code
+        if r.status_code != 200:
+            logging.error(
+                "failure during remote job execution, " \
+                f"status_code={r.status_code}, text={r.text!r}"
+            )
+            raise RuntimeError(
+                f"Server response status code {r.status_code}: {r.text}"
+            )
+
+        knime_outputs = convert_rest_service_output(
+            r.json(),
+            output_as_pandas_dataframes
+        )
+        self._data_table_outputs[:] = knime_outputs
+
+    def _get_workflow_svg(self):
+        r = requests.get(
+            f"{self.rest_api_root_url}/repository/{self.path_to_knime_workflow}:image",
+            headers={"Authorization": f"Bearer {self.jwt}"}
+        )
+        self._last_status_code = r.status_code
+        svg_contents = r.text
+        return svg_contents
+
+
+class AsyncJob:
+    "Manages interactions with a remote, asynchronous job on a KNIME Server."
+
+    def __init__(self, job_id, rest_api_root_url, *, jwt=None):
+        self.job_id = job_id
+        self.rest_api_root_url = rest_api_root_url
+        self.jwt = jwt
+
+    def get_data_table_outputs(
+            self,
+            output_as_pandas_dataframes=True if pandas else False
+        ):
+        """Non-blocking operation unless a timeout is specified to obtain
+        output data tables produced at the end of the job's execution."""
+
+        r = requests.get(
+            f"{self.rest_api_root_url}/jobs/{self.job_id}",
+            headers={
+                "Authorization": f"Bearer {self.jwt}",
+                "Accept": "application/vnd.mason+json",
+            }
+        )
+        self._last_status_code = r.status_code
+        if r.status_code != 200:
+            logging.error(
+                "failure during remote job status query, " \
+                f"status_code={r.status_code}, text={r.text!r}"
+            )
+            raise RuntimeError(
+                f"Server job query status code {r.status_code}: {r.text}"
+            )
+
+        # TODO: How does this behave during a truly long running job?
+        knime_outputs = convert_rest_service_output(
+            r.json(),
+            output_as_pandas_dataframes
+        )
+
+        return knime_outputs
