@@ -77,6 +77,33 @@ class RemoteWorkflowsTest(unittest.TestCase):
             self.assertEqual(output_table, simple_input_dict['table-data'])
 
 
+    def test_basic_async_remote_workflow_execution_without_pandas(self):
+        simple_input_dict = {
+            'table-spec': [{'colors': 'string'}, {'vote': 'long'}],
+            'table-data': [['blau', 42], ['gelb', -1]]
+        }
+        workspace_path = self.knime_server_urlroot
+        workflow_path = f"{self.knime_server_testdir}/test20190410"
+        with knime.Workflow(
+            workspace_path=workspace_path,
+            workflow_path=workflow_path,
+            username=self.knime_server_username,
+            password=self.knime_server_password
+        ) as wf:
+            self.assertEqual(len(wf.data_table_inputs), 1)
+            wf.data_table_inputs[:] = [simple_input_dict]
+            job = wf.execute(
+                reset=True,
+                output_as_pandas_dataframes=False,
+                asynchronous=True
+            )
+            self.assertEqual(len(wf.data_table_outputs), 0)
+            output_table = job.get_data_table_outputs(
+                output_as_pandas_dataframes=False
+            )
+            self.assertEqual(output_table[0], simple_input_dict['table-data'])
+
+
     def test_obtain_remote_workflow_svg(self):
         workspace_path = self.knime_server_urlroot
         workflow_path = f"{self.knime_server_testdir}/test20190410"
@@ -111,6 +138,32 @@ class RemoteWorkflowsTest(unittest.TestCase):
                         timeout_ms=1  # Only 1 millisecond is never enough.
                     )
         self.assertEqual(wf._last_status_code, 504)
+
+
+    # TODO: Reintroduce once REST service respects timeout_ms values.
+    #def test_trigger_timeout_on_remote_workflow_async_execution(self):
+    #    simple_input_dict = {
+    #        'table-spec': [{'colors': 'string'}, {'rank': 'double'}],
+    #        'table-data': [['blau', 42.7], ['gelb', -1.1]]
+    #    }
+    #    workspace_path = self.knime_server_urlroot
+    #    workflow_path = f"{self.knime_server_testdir}/test20190410"
+    #    with self.assertLogs(level=logging.ERROR):
+    #        with self.assertRaises(RuntimeError):
+    #            with knime.Workflow(
+    #                workspace_path=workspace_path,
+    #                workflow_path=workflow_path,
+    #                username=self.knime_server_username,
+    #                password=self.knime_server_password
+    #            ) as wf:
+    #                wf.data_table_inputs[:] = [simple_input_dict]
+    #                job = wf.execute(
+    #                    reset=True,
+    #                    asynchronous=True,
+    #                    timeout_ms=1  # Only 1 millisecond is never enough.
+    #                )
+    #    self.assertEqual(wf._last_status_code, 504)
+
 
     def test_no_inputs_remote_workflow_execution(self):
         workflow_url_via_webportal = \

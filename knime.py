@@ -192,6 +192,37 @@ def convert_dataframe_to_knime_friendly_dict(df):
     return data
 
 
+def convert_rest_service_output(output_dict, output_as_pandas_dataframes):
+    """Produces a dict containing output values from a KNIME workflow's
+    Container Output (Table) nodes unless a pandas DataFrame is requested."""
+
+    knime_outputs = []
+    if output_as_pandas_dataframes:
+        try:
+            for output in output_dict["outputValues"].values():
+                df_columns = list(
+                    k for d in output['table-spec']
+                    for k, v in d.items()
+                )
+                knime_outputs.append(
+                    pandas.DataFrame(
+                        output['table-data'],
+                        columns=df_columns
+                    )
+                )
+        except ImportError:
+            logging.warning("requested output as DataFrame not possible")
+        except Exception as e:
+            logging.error("error while converting KNIME output to DataFrame")
+            raise e
+    else:
+        knime_outputs = [
+            out["table-data"]
+            for out in output_dict["outputValues"].values()
+        ]
+    return knime_outputs
+
+
 def run_workflow_using_multiple_service_tables(
         input_datas,
         path_to_knime_executable,
@@ -558,7 +589,7 @@ class RemoteWorkflow(LocalWorkflow):
         guaranteed to persist after __exit__ is called."""
         return self._data_table_outputs
 
-    def execute(self, *, timeout_ms=None, reset=None,
+    def execute(self, *, timeout_ms=None, reset=None, asynchronous=False,
                 output_as_pandas_dataframes=True if pandas else False):
         "Executes the KNIME workflow via a KNIME Server's REST API."
 
@@ -574,6 +605,51 @@ class RemoteWorkflow(LocalWorkflow):
             job_params["timeout"] = int(timeout_ms)
         if reset:
             job_params["reset"] = bool(reset)
+
+        if asynchronous:
+            r = requests.post(
+                f"{self.rest_api_root_url}/repository/{self.path_to_knime_workflow}:jobs",
+                headers={
+                    "Authorization": f"Bearer {self.jwt}",
+                    "Accept": "application/vnd.mason+json",
+                }
+            )
+            self._last_status_code = r.status_code
+            if r.status_code != 201:
+                logging.error(
+                    "failure during remote job creation, " \
+                    f"status_code={r.status_code}, text={r.text!r}"
+                )
+                raise RuntimeError(
+                    f"Server job creation status code {r.status_code}: {r.text}"
+                )
+            job_id = r.json()["id"]
+
+            job_params["async"] = True
+            r = requests.post(
+                f"{self.rest_api_root_url}/jobs/{job_id}",
+                json=job_input_data,
+                params=job_params,
+                headers={
+                    "Authorization": f"Bearer {self.jwt}",
+                    "Accept": "application/vnd.mason+json",
+                }
+            )
+            self._last_status_code = r.status_code
+            if r.status_code != 200:
+                logging.error(
+                    "failure during remote async job launch, " \
+                    f"status_code={r.status_code}, text={r.text!r}"
+                )
+                raise RuntimeError(
+                    f"Server job launch status code {r.status_code}: {r.text}"
+                )
+
+            return AsyncJob(
+                job_id,
+                self.rest_api_root_url,
+                jwt=self.jwt,
+            )
 
         r = requests.post(
             f"{self.rest_api_root_url}/repository/{self.path_to_knime_workflow}:execution",
@@ -595,31 +671,10 @@ class RemoteWorkflow(LocalWorkflow):
                 f"Server response status code {r.status_code}: {r.text}"
             )
 
-        rest_service_output = r.json()
-        knime_outputs = []
-        if output_as_pandas_dataframes:
-            try:
-                for output in rest_service_output["outputValues"].values():
-                    df_columns = list(
-                        k for d in output['table-spec']
-                        for k, v in d.items()
-                    )
-                    knime_outputs.append(
-                        pandas.DataFrame(
-                            output['table-data'],
-                            columns=df_columns
-                        )
-                    )
-            except ImportError:
-                logging.warning("requested output as DataFrame not possible")
-            except Exception as e:
-                logging.error("error while converting KNIME output to DataFrame")
-                raise e
-        else:
-            knime_outputs = [
-                out["table-data"]
-                for out in rest_service_output["outputValues"].values()
-            ]
+        knime_outputs = convert_rest_service_output(
+            r.json(),
+            output_as_pandas_dataframes
+        )
         self._data_table_outputs[:] = knime_outputs
 
     def _get_workflow_svg(self):
@@ -630,3 +685,44 @@ class RemoteWorkflow(LocalWorkflow):
         self._last_status_code = r.status_code
         svg_contents = r.text
         return svg_contents
+
+
+class AsyncJob:
+    "Manages interactions with a remote, asynchronous job on a KNIME Server."
+
+    def __init__(self, job_id, rest_api_root_url, *, jwt=None):
+        self.job_id = job_id
+        self.rest_api_root_url = rest_api_root_url
+        self.jwt = jwt
+
+    def get_data_table_outputs(
+            self,
+            output_as_pandas_dataframes=True if pandas else False
+        ):
+        """Non-blocking operation unless a timeout is specified to obtain
+        output data tables produced at the end of the job's execution."""
+
+        r = requests.get(
+            f"{self.rest_api_root_url}/jobs/{self.job_id}",
+            headers={
+                "Authorization": f"Bearer {self.jwt}",
+                "Accept": "application/vnd.mason+json",
+            }
+        )
+        self._last_status_code = r.status_code
+        if r.status_code != 200:
+            logging.error(
+                "failure during remote job status query, " \
+                f"status_code={r.status_code}, text={r.text!r}"
+            )
+            raise RuntimeError(
+                f"Server job query status code {r.status_code}: {r.text}"
+            )
+
+        # TODO: How does this behave during a truly long running job?
+        knime_outputs = convert_rest_service_output(
+            r.json(),
+            output_as_pandas_dataframes
+        )
+
+        return knime_outputs
