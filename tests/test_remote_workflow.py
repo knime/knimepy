@@ -108,7 +108,7 @@ class RemoteWorkflowsTest(unittest.TestCase):
                     wf.data_table_inputs[:] = [simple_input_dict]
                     wf.execute(
                         reset=True,
-                        timeout_ms=1  # Only 1 millisecond is never enough.
+                        timeout_ms=0
                     )
         self.assertEqual(wf._last_status_code, 504)
 
