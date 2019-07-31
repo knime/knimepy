@@ -558,20 +558,16 @@ class RemoteWorkflow(LocalWorkflow):
         guaranteed to persist after __exit__ is called."""
         return self._data_table_outputs
 
-    def execute(self, *, timeout_ms=None, reset=None,
+    def execute(self, *, timeout_ms=-1, reset=None,
                 output_as_pandas_dataframes=True if pandas else False):
         "Executes the KNIME workflow via a KNIME Server's REST API."
 
+        data_table_inputs = self.data_table_inputs
         job_input_data = {
             k: convert_dataframe_to_knime_friendly_dict(v)
-            for k, v in zip(
-                self._service_table_input_nodes,
-                self._data_table_inputs
-            )
+            for k, v in zip(self._service_table_input_nodes, data_table_inputs)
         }
-        job_params = {}
-        if timeout_ms >= -1:
-            job_params["timeout"] = int(timeout_ms)
+        job_params = { "timeout": int(timeout_ms) }
         if reset:
             job_params["reset"] = bool(reset)
 
