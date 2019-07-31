@@ -570,7 +570,7 @@ class RemoteWorkflow(LocalWorkflow):
             )
         }
         job_params = {}
-        if timeout_ms:
+        if timeout_ms >= -1:
             job_params["timeout"] = int(timeout_ms)
         if reset:
             job_params["reset"] = bool(reset)
