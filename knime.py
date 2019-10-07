@@ -42,6 +42,9 @@ else:
     executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_3.7.0/knime")
 
 
+KEYPHRASE_LOCKED = b"Workflow is locked by another KNIME instance"
+
+
 def find_service_table_node_dirnames(path_to_knime_workflow):
     """Returns a tuple containing the unique directory names of the Container
     Input and Output (Table) nodes employed by the KNIME workflow in the
@@ -263,6 +266,9 @@ def run_workflow_using_multiple_service_tables(
                     single_node_knime_output = json.load(output_json_fh)
                 knime_outputs.append(single_node_knime_output)
         except FileNotFoundError:
+            if result.stderr and KEYPHRASE_LOCKED in result.stderr:
+                raise ChildProcessError(KEYPHRASE_LOCKED.decode('utf8'))
+
             try:
                 logging.error(f"captured stdout: {result.stdout.decode('utf8')}")
                 logging.error(f"captured stderr: {result.stderr.decode('utf8')}")
