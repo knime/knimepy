@@ -28,9 +28,9 @@ import os
 
 
 __author__ = "Appliomics, LLC"
-__copyright__ = "Copyright 2018, KNIME AG"
+__copyright__ = "Copyright 2018, 2019 KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.9.5"
+__version__ = "0.9.5_mod1"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -189,6 +189,7 @@ def run_workflow_using_multiple_service_tables(
         output_as_pandas_dataframes=True,
         input_json_filename_pattern="input_%d.json",
         output_json_filename_pattern="output_%d.json",
+        supplemental_cmdline="",
     ):
     """Executes the requested KNIME workflow, feeding the supplied data
     to the Container Input (Table) nodes in that workflow and returning the
@@ -245,6 +246,7 @@ def run_workflow_using_multiple_service_tables(
             f'-workflowDir="{abspath_to_knime_workflow}"',
             " ".join(option_flags_input_service_table_nodes),
             " ".join(option_flags_output_service_table_nodes),
+            supplemental_cmdline,
         ])
         logging.info(f"knime invocation: {shell_command}")
 
@@ -325,6 +327,8 @@ class LocalWorkflow:
             "save_after_execution",
             "path_to_knime_workflow", "_input_ids", "_output_ids")
 
+    supplemental_cmdline = ""
+
     def __init__(self, workflow_path, *, workspace_path=None, save_after_execution=False):
         if workspace_path is not None:
             try:
@@ -382,6 +386,7 @@ class LocalWorkflow:
             save_after_execution=self.save_after_execution,
             live_passthru_stdout_stderr=live_passthru_stdout_stderr,
             output_as_pandas_dataframes=output_as_pandas_dataframes,
+            supplemental_cmdline=self.supplemental_cmdline,
         )
         self._data_table_outputs[:] = outputs
 
