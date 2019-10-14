@@ -1,4 +1,4 @@
-import logging
+from logging import ERROR
 import os
 import sys
 import unittest
@@ -90,6 +90,25 @@ class RemoteWorkflowsTest(unittest.TestCase):
         self.assertTrue("clip" in image)
 
 
+    def test_absent_remote_workflow_behavior(self):
+        workspace_path = self.knime_server_urlroot
+        workflow_path = f"{self.knime_server_testdir}/not_there_00"
+        wf = knime.Workflow(
+            workspace_path=workspace_path,
+            workflow_path=workflow_path,
+            username=self.knime_server_username,
+            password=self.knime_server_password
+        )
+        with self.assertRaises(LookupError), self.assertLogs(level=ERROR):
+            _image = wf._adjust_svg()
+        with self.assertRaises(LookupError), self.assertLogs(level=ERROR):
+            _inputs_list = wf.data_table_inputs
+        with self.assertRaises(LookupError), self.assertLogs(level=ERROR):
+            # Triggers LookupError not RuntimeError because execute() attempts
+            # to access self.data_table_inputs first.
+            wf.execute()
+
+
     def test_trigger_timeout_on_remote_workflow_execution(self):
         simple_input_dict = {
             'table-spec': [{'colors': 'string'}, {'rank': 'double'}],
@@ -97,7 +116,7 @@ class RemoteWorkflowsTest(unittest.TestCase):
         }
         workspace_path = self.knime_server_urlroot
         workflow_path = f"{self.knime_server_testdir}/test20190410"
-        with self.assertLogs(level=logging.ERROR):
+        with self.assertLogs(level=ERROR):
             with self.assertRaises(RuntimeError):
                 with knime.Workflow(
                     workspace_path=workspace_path,

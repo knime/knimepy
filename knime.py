@@ -50,7 +50,7 @@ __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
 if os.name == "nt":
     executable_path = os.getenv("KNIME_EXEC", r"C:\Program Files\KNIME\knime.exe")
 else:
-    executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_3.7.0/knime")
+    executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_4.0.0/knime")
 
 
 def find_service_table_node_dirnames(path_to_knime_workflow):
@@ -515,7 +515,7 @@ class RemoteWorkflow(LocalWorkflow):
                 "failure querying server for workflow openapi, " \
                 f"status_code={r.status_code}, text={r.text!r}"
             )
-            raise RuntimeError(
+            raise LookupError(
                 f"Server response status code {r.status_code}: {r.text}"
             )
 
@@ -624,5 +624,13 @@ class RemoteWorkflow(LocalWorkflow):
             headers={"Authorization": f"Bearer {self.jwt}"}
         )
         self._last_status_code = r.status_code
+        if r.status_code != 200:
+            logging.error(
+                "failure during access of remote workflow SVG, " \
+                f"status_code={r.status_code}, text={r.text!r}"
+            )
+            raise LookupError(
+                f"Server response status code {r.status_code}: {r.text}"
+            )
         svg_contents = r.text
         return svg_contents
