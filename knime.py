@@ -390,7 +390,7 @@ class LocalWorkflow:
             self,
             *,
             live_passthru_stdout_stderr=False,
-            output_as_pandas_dataframes=True
+            output_as_pandas_dataframes=True if pandas else False,
         ):
         "Executes the KNIME workflow via KNIME's batch executor."
         outputs = run_workflow_using_multiple_service_tables(
