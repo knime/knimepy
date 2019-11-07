@@ -324,10 +324,9 @@ class LocalWorkflow:
 
     __slots__ = ("_data_table_inputs", "_data_table_outputs",
             "_service_table_input_nodes", "_service_table_output_nodes",
-            "save_after_execution",
+            "save_after_execution", "supplemental_cmdline",
             "path_to_knime_workflow", "_input_ids", "_output_ids")
 
-    supplemental_cmdline = ""
 
     def __init__(self, workflow_path, *, workspace_path=None, save_after_execution=False):
         if workspace_path is not None:
@@ -345,6 +344,7 @@ class LocalWorkflow:
         self._data_table_outputs = None
         self._service_table_input_nodes = None
         self._service_table_output_nodes = None
+        self.supplemental_cmdline = ""
 
     def __enter__(self):
         self._discover_inputoutput_nodes()
