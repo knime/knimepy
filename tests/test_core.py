@@ -3,6 +3,8 @@ import hashlib
 import logging
 import os
 import sys
+import threading
+import time
 import unittest
 try:
     import pandas as pd
@@ -31,8 +33,8 @@ class CoreFunctionsTest(unittest.TestCase):
         "table-data": [[100, "boil"], [0, "freeze"]]
     }
 
+    @staticmethod
     def templated_test_container_1_input_1_output(
-            self,
             input_data_table=None,
             output_as_pandas_dataframes=None
         ):
@@ -73,6 +75,25 @@ class CoreFunctionsTest(unittest.TestCase):
         else:
             self.assertTrue(isinstance(results[0], dict))
 
+
+    def test_workflow_locked_by_other_instance(self):
+        t = threading.Thread(
+            target=self.templated_test_container_1_input_1_output,
+            kwargs=dict(
+                input_data_table=self.simple_input_data_table_dict,
+            )
+        )
+        t.start()
+        time.sleep(2)  # Ensure time for other thread to start
+        with self.assertRaises(ChildProcessError) as cm:
+            results = self.templated_test_container_1_input_1_output(
+                input_data_table=self.simple_input_data_table_dict,
+            )
+        self.assertEqual(
+            cm.exception.args[0],
+            knime.KEYPHRASE_LOCKED.decode('utf8')
+        )
+        t.join()
 
     def test_container_1_input_1_output_dict_input_with_pandas(self):
         if pd is None:
