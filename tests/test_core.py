@@ -245,11 +245,16 @@ class CoreFunctionsTest(unittest.TestCase):
             "table-data": [["boil", 98.7], ["freeze", False]]
         }
         with self.assertLogs(level=logging.ERROR):
-            with self.assertRaises(ChildProcessError):
+            with self.assertRaises(ChildProcessError) as cm:
                 results = self.templated_test_container_1_input_1_output(
                     input_data_table=mismatched_types_input_data_table_dict_1,
                     output_as_pandas_dataframes=False,
                 )
+            # Verify this was not a consequence of a locked workflow conflict.
+            self.assertNotEqual(
+                cm.exception.args[0],
+                knime.KEYPHRASE_LOCKED.decode('utf8')
+            )
 
         # Float in column meant for int also results in missing values.
         mismatched_types_input_data_table_dict_2 = {
@@ -257,11 +262,17 @@ class CoreFunctionsTest(unittest.TestCase):
             "table-data": [[100.567, "boil"], [0.123, "freeze"]]
         }
         with self.assertLogs(level=logging.ERROR):
-            with self.assertRaises(ChildProcessError):
+            with self.assertRaises(ChildProcessError) as cm:
                 results = self.templated_test_container_1_input_1_output(
                     input_data_table=mismatched_types_input_data_table_dict_2,
                     output_as_pandas_dataframes=False,
                 )
+            # Verify this was not a consequence of a locked workflow conflict.
+            self.assertNotEqual(
+                cm.exception.args[0],
+                knime.KEYPHRASE_LOCKED.decode('utf8')
+            )
+
 
 
     def test_non_existent_workflow_execution(self):
