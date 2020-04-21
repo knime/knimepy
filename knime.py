@@ -39,9 +39,9 @@ except ImportError:
 
 
 __author__ = "Appliomics, LLC"
-__copyright__ = "Copyright 2018-2019, KNIME AG"
+__copyright__ = "Copyright 2018-2020, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.10.0"
+__version__ = "0.10.1"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -50,7 +50,7 @@ __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
 if os.name == "nt":
     executable_path = os.getenv("KNIME_EXEC", r"C:\Program Files\KNIME\knime.exe")
 else:
-    executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_4.0.0/knime")
+    executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_4.1.0/knime")
 
 
 def find_service_table_node_dirnames(path_to_knime_workflow):
