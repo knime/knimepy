@@ -115,8 +115,8 @@ class CoreFunctionsTest(unittest.TestCase):
         if pd is None:
             self.skipTest("pandas not available")
         df = pd.DataFrame(
-            [[0, "cold"], [15, "warm"], [30, "hot"]],
-            columns=["column-int", "description"]
+            [[0, "cold", 3.14], [15, "warm", pd.np.NaN], [30, "hot", -1.0]],
+            columns=["column-int", "description", "showcase_missing_val"]
         )
         df["column-int"] = df["column-int"].astype(pd.np.int32)
         results = self.templated_test_container_1_input_1_output(
@@ -126,12 +126,14 @@ class CoreFunctionsTest(unittest.TestCase):
         self.assertTrue(isinstance(results[0], pd.DataFrame))
         self.assertEqual(
             set(results[0].columns),
-            {"column-int", "description", "computored"}
+            {"column-int", "description", "showcase_missing_val", "computored"}
         )
         self.assertEqual(
             list(results[0]["computored"].values),
             [0, 630, 1260]
         )
+        self.assertEqual(int(results[0]["showcase_missing_val"][0]), 3)
+        self.assertTrue(results[0]["showcase_missing_val"].isna().any())
 
 
     def test_container_1_input_1_output_DataFrame_input_no_DataFrame_output(self):

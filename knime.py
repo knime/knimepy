@@ -28,9 +28,9 @@ import os
 
 
 __author__ = "Appliomics, LLC"
-__copyright__ = "Copyright 2018, KNIME AG"
+__copyright__ = "Copyright 2018-2019, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.9.5"
+__version__ = "0.9.6"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -39,7 +39,7 @@ __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
 if os.name == "nt":
     executable_path = os.getenv("KNIME_EXEC", r"C:\Program Files\KNIME\knime.exe")
 else:
-    executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_3.7.0/knime")
+    executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_4.0.0/knime")
 
 
 KEYPHRASE_LOCKED = b"Workflow is locked by another KNIME instance"
@@ -172,9 +172,14 @@ def convert_dataframe_to_knime_friendly_dict(df):
         if knime_type == "string":
             df2[column_name] = df2[column_name].apply(str)
 
+    if df2.isna().any().any():
+        # If any NaN values exist, ensure they convert to null in final json.
+        cleaned_table_data = json.loads(df2.to_json(orient="values"))
+    else:
+        cleaned_table_data = df2.to_dict(orient="split")["data"]
     data = {
         "table-spec": [ {c: t} for c, t in proto_table_spec ],
-        "table-data": df2.to_dict(orient="split")["data"],
+        "table-data": cleaned_table_data,
     }
 
     return data
@@ -243,7 +248,7 @@ def run_workflow_using_multiple_service_tables(
             "-debug",
             "--launcher.suppressErrors",
             "-application org.knime.product.KNIME_BATCH_APPLICATION",
-            f"-data {data_dir}",
+            f"-data {data_dir}" if not save_after_execution else "",
             "-nosave" if not save_after_execution else "",
             f'-workflowDir="{abspath_to_knime_workflow}"',
             " ".join(option_flags_input_service_table_nodes),
