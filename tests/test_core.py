@@ -8,6 +8,7 @@ import time
 import unittest
 try:
     import pandas as pd
+    import numpy as np
 except ImportError:
     pd = None
 
@@ -115,10 +116,10 @@ class CoreFunctionsTest(unittest.TestCase):
         if pd is None:
             self.skipTest("pandas not available")
         df = pd.DataFrame(
-            [[0, "cold", 3.14], [15, "warm", pd.np.NaN], [30, "hot", -1.0]],
+            [[0, "cold", 3.14], [15, "warm", np.NaN], [30, "hot", -1.0]],
             columns=["column-int", "description", "showcase_missing_val"]
         )
-        df["column-int"] = df["column-int"].astype(pd.np.int32)
+        df["column-int"] = df["column-int"].astype(np.int32)
         results = self.templated_test_container_1_input_1_output(
             input_data_table=df,
         )
@@ -143,7 +144,7 @@ class CoreFunctionsTest(unittest.TestCase):
             [[-1, "cold"], [15, "warm"], [30, "hot"]],
             columns=["column-int", "description"]
         )
-        df["column-int"] = df["column-int"].astype(pd.np.int32)
+        df["column-int"] = df["column-int"].astype(np.int32)
         results = self.templated_test_container_1_input_1_output(
             input_data_table=df,
             output_as_pandas_dataframes=False,
@@ -203,15 +204,15 @@ class CoreFunctionsTest(unittest.TestCase):
         self.assertEqual(
             list(df.dtypes),
             [
-                pd.np.dtype("O"),
-                pd.np.dtype("int64"),
-                pd.np.dtype("float64"),
-                pd.np.dtype("int64"),
-                pd.np.dtype("bool"),
-                pd.np.dtype("O"),
-                pd.np.dtype("O"),
-                pd.np.dtype("O"),
-                pd.np.dtype("int64"),
+                np.dtype("O"),
+                np.dtype("int64"),
+                np.dtype("float64"),
+                np.dtype("int64"),
+                np.dtype("bool"),
+                np.dtype("O"),
+                np.dtype("O"),
+                np.dtype("O"),
+                np.dtype("int64"),
             ]
         )
 
