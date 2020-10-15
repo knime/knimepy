@@ -97,6 +97,7 @@ class CoreFunctionsTest(unittest.TestCase):
         )
         t.join()
 
+
     def test_container_1_input_1_output_dict_input_with_pandas(self):
         if pd is None:
             self.skipTest("pandas not available")
@@ -300,7 +301,6 @@ class CoreFunctionsTest(unittest.TestCase):
                 cm.exception.args[0],
                 knime.KEYPHRASE_LOCKED.decode('utf8')
             )
-
 
 
     def test_non_existent_workflow_execution(self):

@@ -29,9 +29,9 @@ import os
 
 
 __author__ = "Appliomics, LLC"
-__copyright__ = "Copyright 2018-2019, KNIME AG"
+__copyright__ = "Copyright 2018-2020, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.9.6"
+__version__ = "0.10.0"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -40,7 +40,7 @@ __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
 if os.name == "nt":
     executable_path = os.getenv("KNIME_EXEC", r"C:\Program Files\KNIME\knime.exe")
 else:
-    executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_4.0.0/knime")
+    executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_4.2.0/knime")
 
 
 KEYPHRASE_LOCKED = b"Workflow is locked by another KNIME instance"
