@@ -23,6 +23,7 @@ from pathlib import Path, PurePosixPath
 import tempfile
 import subprocess
 import shlex
+import warnings
 import logging
 import os
 
@@ -212,7 +213,7 @@ def run_workflow_using_multiple_service_tables(
         option_flags_input_service_table_nodes = []
         for node_id, data in zip(input_service_table_node_ids, input_datas):
             if data is None:
-                raise Warning(f'No input set for node_id={node_id}')
+                warnings.warn(f'No input set for node_id={node_id}', UserWarning)
                 continue
 
             input_json_filename = input_json_filename_pattern % node_id
