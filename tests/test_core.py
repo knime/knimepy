@@ -6,6 +6,7 @@ import sys
 import threading
 import time
 import unittest
+import warnings
 try:
     import pandas as pd
     import numpy as np
@@ -96,6 +97,7 @@ class CoreFunctionsTest(unittest.TestCase):
         )
         t.join()
 
+
     def test_container_1_input_1_output_dict_input_with_pandas(self):
         if pd is None:
             self.skipTest("pandas not available")
@@ -163,9 +165,10 @@ class CoreFunctionsTest(unittest.TestCase):
 
 
     def test_container_1_input_1_output_no_input_data_without_pandas(self):
-        results = self.templated_test_container_1_input_1_output(
-            output_as_pandas_dataframes=False,
-        )
+        with self.assertWarns(UserWarning):
+            results = self.templated_test_container_1_input_1_output(
+                output_as_pandas_dataframes=False,
+            )
         self.assertEqual(len(results), 1)
         self.assertTrue(isinstance(results[0], dict))
         returned_table_spec = (list(d)[0] for d in results[0]["table-spec"])
@@ -176,9 +179,10 @@ class CoreFunctionsTest(unittest.TestCase):
 
 
     def test_container_1_input_1_output_no_input_data(self):
-        results = self.templated_test_container_1_input_1_output(
-            output_as_pandas_dataframes=None,
-        )
+        with self.assertWarns(UserWarning):
+            results = self.templated_test_container_1_input_1_output(
+                output_as_pandas_dataframes=None,
+            )
         self.assertEqual(len(results), 1)
         if pd is not None:
             self.assertTrue(isinstance(results[0], pd.DataFrame))
@@ -189,9 +193,10 @@ class CoreFunctionsTest(unittest.TestCase):
     def test_container_1_input_1_output_no_input_data_with_pandas(self):
         if pd is None:
             self.skipTest("pandas not available")
-        results = self.templated_test_container_1_input_1_output(
-            output_as_pandas_dataframes=True,
-        )
+        with self.assertWarns(UserWarning):
+            results = self.templated_test_container_1_input_1_output(
+                output_as_pandas_dataframes=True,
+            )
         self.assertEqual(len(results), 1)
         df = results[0]
         self.assertTrue(isinstance(df, pd.DataFrame))
@@ -298,7 +303,6 @@ class CoreFunctionsTest(unittest.TestCase):
             )
 
 
-
     def test_non_existent_workflow_execution(self):
         with knime.Workflow("tests/knime-workspace/never_gonna_give_you_up") as wf:
             pass  # There was no execute call and so no problem.
@@ -309,7 +313,8 @@ class CoreFunctionsTest(unittest.TestCase):
                 workflow_path="never_gonna_let_you_down"
             ) as wf:
                 # Existence of workflow is only checked in execute().
-                wf.execute(output_as_pandas_dataframes=False)
+                with self.assertWarns(UserWarning):
+                    wf.execute(output_as_pandas_dataframes=False)
                 results = wf.data_table_outputs[:]
 
 
@@ -318,7 +323,8 @@ class CoreFunctionsTest(unittest.TestCase):
             workspace_path="tests/knime-workspace",
             workflow_path="test_simple_container_table_01"
         ) as wf:
-            wf.execute(output_as_pandas_dataframes=False)
+            with self.assertWarns(UserWarning):
+                wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
         self.assertEqual(len(results), 1)
 
@@ -326,7 +332,8 @@ class CoreFunctionsTest(unittest.TestCase):
             workspace_path="tests/knime-workspace",
             workflow_path="/test_simple_container_table_01"
         ) as wf:
-            wf.execute(output_as_pandas_dataframes=False)
+            with self.assertWarns(UserWarning):
+                wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
         self.assertEqual(len(results), 1)
 
@@ -336,7 +343,8 @@ class CoreFunctionsTest(unittest.TestCase):
                 workspace_path="tests/knime-workspace",
                 workflow_path="never_gonna_run_around_and_desert_you"
             ) as wf:
-                wf.execute(output_as_pandas_dataframes=False)
+                with self.assertWarns(UserWarning):
+                    wf.execute(output_as_pandas_dataframes=False)
                 results = wf.data_table_outputs[:]
 
         with self.assertRaises(FileNotFoundError):
@@ -345,13 +353,15 @@ class CoreFunctionsTest(unittest.TestCase):
                 workspace_path="/tests/knime-workspace",
                 workflow_path="/test_simple_container_table_01"
             ) as wf:
-                wf.execute(output_as_pandas_dataframes=False)
+                with self.assertWarns(UserWarning):
+                    wf.execute(output_as_pandas_dataframes=False)
                 results = wf.data_table_outputs[:]
 
 
     def test_AAAA_nosave_workflow_after_execution_as_default(self):
         with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
-            wf.execute(output_as_pandas_dataframes=False)
+            with self.assertWarns(UserWarning):
+                wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
             self.assertEqual(wf.data_table_inputs_parameter_names, ("input",))
 
@@ -363,7 +373,8 @@ class CoreFunctionsTest(unittest.TestCase):
     def test_zzzz_save_workflow_after_execution(self):
         with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
             wf.save_after_execution = True
-            wf.execute(output_as_pandas_dataframes=False)
+            with self.assertWarns(UserWarning):
+                wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
             self.assertEqual(wf.data_table_inputs_parameter_names, ("input",))
 
