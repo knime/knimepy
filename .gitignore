@@ -11,3 +11,4 @@ MANIFEST
 knime.egg-info/
 **/port_?/
 **/internalTables/
+**/.artifacts/workflow-configuration*.json
