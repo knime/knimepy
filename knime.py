@@ -41,7 +41,7 @@ except ImportError:
 __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018-2020, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.11.2"
+__version__ = "0.11.3"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -481,8 +481,9 @@ class RemoteWorkflow(LocalWorkflow):
                  server_base_path="/knime"):
         if workspace_path is not None:
             parsed_path = urlparse(workspace_path)
+            reduced_workflow_path = workflow_path.split("/knime", 1)[-1]
             self.path_to_knime_workflow = \
-                workflow_path.lstrip("/knime").lstrip("/#").strip("/")
+                reduced_workflow_path.lstrip("/#").strip("/")
         else:
             parsed_path = urlparse(workflow_path)
             reduced_workflow_path = parsed_path.path.split("/knime", 1)[-1]
