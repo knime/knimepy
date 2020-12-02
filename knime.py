@@ -30,7 +30,7 @@ try:
     import requests
 except ImportError:
     # RemoteWorkflow capabilities will be unavailable
-    requests = None
+    pass
 try:
     import pandas
 except ImportError:
