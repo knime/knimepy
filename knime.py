@@ -41,7 +41,7 @@ except ImportError:
 __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018-2020, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.11.0"
+__version__ = "0.11.2"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -485,8 +485,8 @@ class RemoteWorkflow(LocalWorkflow):
                 workflow_path.lstrip("/knime").lstrip("/#").strip("/")
         else:
             parsed_path = urlparse(workflow_path)
-            self.path_to_knime_workflow = \
-                parsed_path.path.lstrip("/knime").strip("/")
+            reduced_workflow_path = parsed_path.path.split("/knime", 1)[-1]
+            self.path_to_knime_workflow = reduced_workflow_path.strip("/")
             if self.path_to_knime_workflow == "":
                 self.path_to_knime_workflow = parsed_path.fragment
         assert parsed_path.scheme.startswith("http"), "Protocol not recognized"
