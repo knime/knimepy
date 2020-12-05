@@ -42,7 +42,7 @@ except ImportError:
 __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018-2020, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.11.4"
+__version__ = "0.11.5"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -583,6 +583,10 @@ class RemoteWorkflow(LocalWorkflow):
             k: convert_dataframe_to_knime_friendly_dict(v)
             for k, v in zip(self._service_table_input_nodes, data_table_inputs)
         }
+        for node_id, input_dt in job_input_data.items():
+            if input_dt is None:
+                # Trigger warning just like for local workflows.
+                warnings.warn(f'No input set for node_id={node_id}', UserWarning)
         job_params = { "timeout": int(timeout_ms) }
         if reset:
             job_params["reset"] = bool(reset)

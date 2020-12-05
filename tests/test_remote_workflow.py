@@ -77,6 +77,27 @@ class RemoteWorkflowsTest(unittest.TestCase):
             self.assertEqual(output_table, simple_input_dict['table-data'])
 
 
+    def test_basic_remote_workflow_execution_missing_input(self):
+        workspace_path = self.knime_server_urlroot
+        workflow_path = f"{self.knime_server_testdir}/test20190410"
+        # This workflow will return the default table from Container Input
+        # when no input data is otherwise supplied.
+        with knime.Workflow(
+            workspace_path=workspace_path,
+            workflow_path=workflow_path,
+            username=self.knime_server_username,
+            password=self.knime_server_password
+        ) as wf:
+            self.assertEqual(len(wf.data_table_inputs), 1)
+            with self.assertWarns(UserWarning):
+                wf.execute(
+                    reset=True,
+                    output_as_pandas_dataframes=False,
+                    timeout_ms=10000
+                )
+            self.assertEqual(len(wf.data_table_outputs), 1)
+
+
     def test_obtain_remote_workflow_svg(self):
         workspace_path = self.knime_server_urlroot
         workflow_path = f"{self.knime_server_testdir}/test20190410"
