@@ -42,7 +42,7 @@ except ImportError:
 __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018-2020, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.11.5"
+__version__ = "0.11.6"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -628,6 +628,10 @@ class RemoteWorkflow(LocalWorkflow):
                     )
             except ImportError:
                 logging.warning("requested output as DataFrame not possible")
+            except KeyError:
+                # If no Container Output (Table) nodes exist in a workflow,
+                # the "outputValues" key will not appear in returned json.
+                logging.info("no output data tables produced by workflow")
             except Exception as e:
                 logging.error("error while converting KNIME output to DataFrame")
                 raise e
