@@ -3,9 +3,13 @@ import hashlib
 import logging
 import os
 import sys
+import threading
+import time
 import unittest
+import warnings
 try:
     import pandas as pd
+    import numpy as np
 except ImportError:
     pd = None
 
@@ -31,8 +35,8 @@ class CoreFunctionsTest(unittest.TestCase):
         "table-data": [[100, "boil"], [0, "freeze"]]
     }
 
+    @staticmethod
     def templated_test_container_1_input_1_output(
-            self,
             input_data_table=None,
             output_as_pandas_dataframes=None
         ):
@@ -74,6 +78,26 @@ class CoreFunctionsTest(unittest.TestCase):
             self.assertTrue(isinstance(results[0], dict))
 
 
+    def test_workflow_locked_by_other_instance(self):
+        t = threading.Thread(
+            target=self.templated_test_container_1_input_1_output,
+            kwargs=dict(
+                input_data_table=self.simple_input_data_table_dict,
+            )
+        )
+        t.start()
+        time.sleep(2)  # Ensure time for other thread to start
+        with self.assertRaises(ChildProcessError) as cm:
+            results = self.templated_test_container_1_input_1_output(
+                input_data_table=self.simple_input_data_table_dict,
+            )
+        self.assertEqual(
+            cm.exception.args[0],
+            knime.KEYPHRASE_LOCKED.decode('utf8')
+        )
+        t.join()
+
+
     def test_container_1_input_1_output_dict_input_with_pandas(self):
         if pd is None:
             self.skipTest("pandas not available")
@@ -94,10 +118,10 @@ class CoreFunctionsTest(unittest.TestCase):
         if pd is None:
             self.skipTest("pandas not available")
         df = pd.DataFrame(
-            [[0, "cold"], [15, "warm"], [30, "hot"]],
-            columns=["column-int", "description"]
+            [[0, "cold", 3.14], [15, "warm", np.NaN], [30, "hot", -1.0]],
+            columns=["column-int", "description", "showcase_missing_val"]
         )
-        df["column-int"] = df["column-int"].astype(pd.np.int32)
+        df["column-int"] = df["column-int"].astype(np.int32)
         results = self.templated_test_container_1_input_1_output(
             input_data_table=df,
         )
@@ -105,12 +129,14 @@ class CoreFunctionsTest(unittest.TestCase):
         self.assertTrue(isinstance(results[0], pd.DataFrame))
         self.assertEqual(
             set(results[0].columns),
-            {"column-int", "description", "computored"}
+            {"column-int", "description", "showcase_missing_val", "computored"}
         )
         self.assertEqual(
             list(results[0]["computored"].values),
             [0, 630, 1260]
         )
+        self.assertEqual(int(results[0]["showcase_missing_val"][0]), 3)
+        self.assertTrue(results[0]["showcase_missing_val"].isna().any())
 
 
     def test_container_1_input_1_output_DataFrame_input_no_DataFrame_output(self):
@@ -120,7 +146,7 @@ class CoreFunctionsTest(unittest.TestCase):
             [[-1, "cold"], [15, "warm"], [30, "hot"]],
             columns=["column-int", "description"]
         )
-        df["column-int"] = df["column-int"].astype(pd.np.int32)
+        df["column-int"] = df["column-int"].astype(np.int32)
         results = self.templated_test_container_1_input_1_output(
             input_data_table=df,
             output_as_pandas_dataframes=False,
@@ -139,9 +165,10 @@ class CoreFunctionsTest(unittest.TestCase):
 
 
     def test_container_1_input_1_output_no_input_data_without_pandas(self):
-        results = self.templated_test_container_1_input_1_output(
-            output_as_pandas_dataframes=False,
-        )
+        with self.assertWarns(UserWarning):
+            results = self.templated_test_container_1_input_1_output(
+                output_as_pandas_dataframes=False,
+            )
         self.assertEqual(len(results), 1)
         self.assertTrue(isinstance(results[0], dict))
         returned_table_spec = (list(d)[0] for d in results[0]["table-spec"])
@@ -152,9 +179,10 @@ class CoreFunctionsTest(unittest.TestCase):
 
 
     def test_container_1_input_1_output_no_input_data(self):
-        results = self.templated_test_container_1_input_1_output(
-            output_as_pandas_dataframes=None,
-        )
+        with self.assertWarns(UserWarning):
+            results = self.templated_test_container_1_input_1_output(
+                output_as_pandas_dataframes=None,
+            )
         self.assertEqual(len(results), 1)
         if pd is not None:
             self.assertTrue(isinstance(results[0], pd.DataFrame))
@@ -165,9 +193,10 @@ class CoreFunctionsTest(unittest.TestCase):
     def test_container_1_input_1_output_no_input_data_with_pandas(self):
         if pd is None:
             self.skipTest("pandas not available")
-        results = self.templated_test_container_1_input_1_output(
-            output_as_pandas_dataframes=True,
-        )
+        with self.assertWarns(UserWarning):
+            results = self.templated_test_container_1_input_1_output(
+                output_as_pandas_dataframes=True,
+            )
         self.assertEqual(len(results), 1)
         df = results[0]
         self.assertTrue(isinstance(df, pd.DataFrame))
@@ -180,15 +209,15 @@ class CoreFunctionsTest(unittest.TestCase):
         self.assertEqual(
             list(df.dtypes),
             [
-                pd.np.dtype("O"),
-                pd.np.dtype("int64"),
-                pd.np.dtype("float64"),
-                pd.np.dtype("int64"),
-                pd.np.dtype("bool"),
-                pd.np.dtype("O"),
-                pd.np.dtype("O"),
-                pd.np.dtype("O"),
-                pd.np.dtype("int64"),
+                np.dtype("O"),
+                np.dtype("int64"),
+                np.dtype("float64"),
+                np.dtype("int64"),
+                np.dtype("bool"),
+                np.dtype("O"),
+                np.dtype("O"),
+                np.dtype("O"),
+                np.dtype("int64"),
             ]
         )
 
@@ -244,34 +273,34 @@ class CoreFunctionsTest(unittest.TestCase):
             "table-spec": [{"column-int": "int"}, {"b": "string"}],
             "table-data": [["boil", 98.7], ["freeze", False]]
         }
-        results = self.templated_test_container_1_input_1_output(
-            input_data_table=mismatched_types_input_data_table_dict_1,
-            output_as_pandas_dataframes=False,
-        )
-        self.assertEqual(len(results), 1)
-        self.assertEqual(len(results[0]["table-data"]), 2)
-        self.assertEqual(len(results[0]["table-data"][0]), 3)
-        self.assertEqual(
-            results[0]["table-data"],
-            [[None, "98.7", None], [None, "false", None]]
-        )
+        with self.assertLogs(level=logging.ERROR):
+            with self.assertRaises(ChildProcessError) as cm:
+                results = self.templated_test_container_1_input_1_output(
+                    input_data_table=mismatched_types_input_data_table_dict_1,
+                    output_as_pandas_dataframes=False,
+                )
+            # Verify this was not a consequence of a locked workflow conflict.
+            self.assertNotEqual(
+                cm.exception.args[0],
+                knime.KEYPHRASE_LOCKED.decode('utf8')
+            )
 
         # Float in column meant for int also results in missing values.
         mismatched_types_input_data_table_dict_2 = {
             "table-spec": [{"column-int": "int"}, {"b": "string"}],
             "table-data": [[100.567, "boil"], [0.123, "freeze"]]
         }
-        results = self.templated_test_container_1_input_1_output(
-            input_data_table=mismatched_types_input_data_table_dict_2,
-            output_as_pandas_dataframes=False,
-        )
-        self.assertEqual(len(results), 1)
-        self.assertEqual(len(results[0]["table-data"]), 2)
-        self.assertEqual(len(results[0]["table-data"][0]), 3)
-        self.assertEqual(
-            results[0]["table-data"],
-            [[None, "boil", None], [None, "freeze", None]]
-        )
+        with self.assertLogs(level=logging.ERROR):
+            with self.assertRaises(ChildProcessError) as cm:
+                results = self.templated_test_container_1_input_1_output(
+                    input_data_table=mismatched_types_input_data_table_dict_2,
+                    output_as_pandas_dataframes=False,
+                )
+            # Verify this was not a consequence of a locked workflow conflict.
+            self.assertNotEqual(
+                cm.exception.args[0],
+                knime.KEYPHRASE_LOCKED.decode('utf8')
+            )
 
 
     def test_non_existent_workflow_execution(self):
@@ -284,7 +313,8 @@ class CoreFunctionsTest(unittest.TestCase):
                 workflow_path="never_gonna_let_you_down"
             ) as wf:
                 # Existence of workflow is only checked in execute().
-                wf.execute(output_as_pandas_dataframes=False)
+                with self.assertWarns(UserWarning):
+                    wf.execute(output_as_pandas_dataframes=False)
                 results = wf.data_table_outputs[:]
 
 
@@ -293,7 +323,8 @@ class CoreFunctionsTest(unittest.TestCase):
             workspace_path="tests/knime-workspace",
             workflow_path="test_simple_container_table_01"
         ) as wf:
-            wf.execute(output_as_pandas_dataframes=False)
+            with self.assertWarns(UserWarning):
+                wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
         self.assertEqual(len(results), 1)
 
@@ -301,7 +332,8 @@ class CoreFunctionsTest(unittest.TestCase):
             workspace_path="tests/knime-workspace",
             workflow_path="/test_simple_container_table_01"
         ) as wf:
-            wf.execute(output_as_pandas_dataframes=False)
+            with self.assertWarns(UserWarning):
+                wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
         self.assertEqual(len(results), 1)
 
@@ -311,7 +343,8 @@ class CoreFunctionsTest(unittest.TestCase):
                 workspace_path="tests/knime-workspace",
                 workflow_path="never_gonna_run_around_and_desert_you"
             ) as wf:
-                wf.execute(output_as_pandas_dataframes=False)
+                with self.assertWarns(UserWarning):
+                    wf.execute(output_as_pandas_dataframes=False)
                 results = wf.data_table_outputs[:]
 
         with self.assertRaises(FileNotFoundError):
@@ -320,7 +353,8 @@ class CoreFunctionsTest(unittest.TestCase):
                 workspace_path="/tests/knime-workspace",
                 workflow_path="/test_simple_container_table_01"
             ) as wf:
-                wf.execute(output_as_pandas_dataframes=False)
+                with self.assertWarns(UserWarning):
+                    wf.execute(output_as_pandas_dataframes=False)
                 results = wf.data_table_outputs[:]
 
 
@@ -332,7 +366,8 @@ class CoreFunctionsTest(unittest.TestCase):
 
     def test_AAAA_nosave_workflow_after_execution_as_default(self):
         with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
-            wf.execute(output_as_pandas_dataframes=False)
+            with self.assertWarns(UserWarning):
+                wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
             self.assertEqual(wf.data_table_inputs_parameter_names, ("input",))
 
@@ -344,7 +379,8 @@ class CoreFunctionsTest(unittest.TestCase):
     def test_zzzz_save_workflow_after_execution(self):
         with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
             wf.save_after_execution = True
-            wf.execute(output_as_pandas_dataframes=False)
+            with self.assertWarns(UserWarning):
+                wf.execute(output_as_pandas_dataframes=False)
             results = wf.data_table_outputs[:]
             self.assertEqual(wf.data_table_inputs_parameter_names, ("input",))
 

@@ -23,6 +23,7 @@ from pathlib import Path, PurePosixPath
 import tempfile
 import subprocess
 import shlex
+import warnings
 import logging
 import os
 from urllib.parse import urlparse
@@ -41,7 +42,7 @@ except ImportError:
 __author__ = "Appliomics, LLC"
 __copyright__ = "Copyright 2018-2020, KNIME AG"
 __credits__ = [ "Davin Potts", "Greg Landrum" ]
-__version__ = "0.11.3"
+__version__ = "0.11.4"
 
 
 __all__ = [ "Workflow", "LocalWorkflow", "RemoteWorkflow", "executable_path" ]
@@ -51,6 +52,9 @@ if os.name == "nt":
     executable_path = os.getenv("KNIME_EXEC", r"C:\Program Files\KNIME\knime.exe")
 else:
     executable_path = os.getenv("KNIME_EXEC", "/opt/local/knime_4.3.0/knime")
+
+
+KEYPHRASE_LOCKED = b"Workflow is locked by another KNIME instance"
 
 
 def find_service_table_node_dirnames(path_to_knime_workflow):
@@ -125,7 +129,6 @@ def find_node_id(path_to_knime_workflow, unique_node_dirname):
             if sub_tag.attrib.get("key") == "id":
                 node_id = int(sub_tag.attrib["value"])
             if sub_tag.attrib.get("value") == target_value:
-                found_service_table = True
                 break
         else:
             node_id = None
@@ -181,9 +184,14 @@ def convert_dataframe_to_knime_friendly_dict(df):
             if knime_type == "string":
                 df2[column_name] = df2[column_name].apply(str)
 
+        if df2.isna().any().any():
+            # If any NaN values exist, ensure they convert to null in final json.
+            cleaned_table_data = json.loads(df2.to_json(orient="values"))
+        else:
+            cleaned_table_data = df2.to_dict(orient="split")["data"]
         data = {
             "table-spec": [ {c: t} for c, t in proto_table_spec ],
-            "table-data": df2.to_dict(orient="split")["data"],
+            "table-data": cleaned_table_data,
         }
 
     except AttributeError:
@@ -218,6 +226,10 @@ def run_workflow_using_multiple_service_tables(
 
         option_flags_input_service_table_nodes = []
         for node_id, data in zip(input_service_table_node_ids, input_datas):
+            if data is None:
+                warnings.warn(f'No input set for node_id={node_id}', UserWarning)
+                continue
+
             input_json_filename = input_json_filename_pattern % node_id
             input_json_filepath = Path(temp_dir, input_json_filename)
 
@@ -252,7 +264,7 @@ def run_workflow_using_multiple_service_tables(
             "-debug",
             "--launcher.suppressErrors",
             "-application org.knime.product.KNIME_BATCH_APPLICATION",
-            f"-data {data_dir}",
+            f"-data {data_dir}" if not save_after_execution else "",
             "-nosave" if not save_after_execution else "",
             f'-workflowDir="{abspath_to_knime_workflow}"',
             " ".join(option_flags_input_service_table_nodes),
@@ -275,6 +287,9 @@ def run_workflow_using_multiple_service_tables(
                     single_node_knime_output = json.load(output_json_fh)
                 knime_outputs.append(single_node_knime_output)
         except FileNotFoundError:
+            if result.stderr and KEYPHRASE_LOCKED in result.stderr:
+                raise ChildProcessError(KEYPHRASE_LOCKED.decode('utf8'))
+
             try:
                 logging.error(f"captured stdout: {result.stdout.decode('utf8')}")
                 logging.error(f"captured stderr: {result.stderr.decode('utf8')}")
