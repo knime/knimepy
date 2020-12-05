@@ -65,3 +65,35 @@ Expanded Example: Multiple Inputs/Outputs when Executing a KNIME Workflow
       wf.execute()
       output_table = wf.data_table_outputs[0]  # output_table will be a pd.DataFrame
 
+
+KNIME Server Example: Execute a KNIME Workflow on a remote KNIME Server
+-----------------------------------------------------------------------
+
+.. code-block:: python
+
+  import knime
+  import pandas as pd
+
+  input_table_1 = pd.DataFrame([["blau", -273.15], ["gelb", 100.0]], columns=["color", "temp"])
+
+  # Requires a valid user account on a running KNIME Server instance.
+  with knime.Workflow(
+      "https://your_server.your_company.com/knime/your_directory/your_workflow_name",
+      username="arthur.dent",
+      password="forty-two"
+  ) as wf:
+      wf.data_table_inputs[:] = [input_table_1]
+      wf.execute(reset=True, timeout_ms=10000)  # Default timeout is usually plenty.
+      output_table = wf.data_table_outputs[0]
+
+  # Alternative syntax for specifying the Workflow, keeping everything else the same:
+  with knime.Workflow(
+      workspace_path="https://your_server.your_company.com/knime",
+      workflow_path="/your_directory/your_workflow_name",
+      username="arthur.dent",
+      password="forty-two"
+  ) as wf:
+      wf.data_table_inputs[:] = [input_table_1]
+      wf.execute(reset=True, timeout_ms=10000)
+      output_table = wf.data_table_outputs[0]
+

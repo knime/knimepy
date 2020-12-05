@@ -358,6 +358,12 @@ class CoreFunctionsTest(unittest.TestCase):
                 results = wf.data_table_outputs[:]
 
 
+    def test_obtain_local_workflow_svg(self):
+        wf = knime.Workflow("tests/knime-workspace/test_simple_container_table_01")
+        image = wf._adjust_svg()
+        self.assertTrue("clip" in image)
+
+
     def test_AAAA_nosave_workflow_after_execution_as_default(self):
         with knime.Workflow("tests/knime-workspace/test_simple_container_table_01") as wf:
             with self.assertWarns(UserWarning):
