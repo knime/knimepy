@@ -18,7 +18,9 @@ TODOs:
 
 
 import json
+import re
 import xml.etree.ElementTree as ElementTree
+from locale import getpreferredencoding
 from pathlib import Path, PurePosixPath
 import tempfile
 import subprocess
@@ -64,11 +66,31 @@ def find_service_table_node_dirnames(path_to_knime_workflow):
     lists Container Input (Table) node directory names and the second lists
     Container Output (Table) nodes."""
 
+    def get_xml_encoding(file_path):
+        """Returns a string containing the proper encoding for input XML filepath.
+        If no encoding information exists in the XML declaration line,
+        then the function returns machine-preferred encoding as also used by Python open()."""
+
+        pattern = re.compile(rb'encoding=([\"\'])(.*)\1')
+        # encoding="<matches anything inside>" wrapped in proper quotes, if exists
+        with open(file_path, mode='rb') as file_bytes:
+            header = file_bytes.readline()
+            # Assuming encoding information is on the first line following the XML standard
+            # Reference: https://www.w3.org/TR/REC-xml/#charencoding
+        try:
+            capture_encoding = pattern.search(header).group(2)
+        except AttributeError:
+            return getpreferredencoding()
+            # getpreferredencoding() is by default what open() invokes to get encoding information
+        proper_encoding = bytes.decode(capture_encoding)
+        return proper_encoding
+
     input_service_table_node_dirnames = []
     output_service_table_node_dirnames = []
 
     for settings_filepath in Path(path_to_knime_workflow).glob("*/settings.xml"):
-        with settings_filepath.open() as fh:
+        xml_encoding = get_xml_encoding(settings_filepath)
+        with settings_filepath.open(encoding=xml_encoding) as fh:
             for line in fh:
                 if "ContainerTableInputNodeFactory" in line:
                     *extra, dirname, _settings_xml = settings_filepath.parts
